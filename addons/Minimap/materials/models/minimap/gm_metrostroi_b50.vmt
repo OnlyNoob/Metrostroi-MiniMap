@@ -1,0 +1,9 @@
+"VertexLitGeneric"
+{
+	"$color"				"[1 1 1]"
+	"$baseTexture"			"models/minimap/gm_metrostroi_b50"
+	"$selfIllum"			0
+	"$translucent"			0
+	"$alphatest"			1
+}
+// Created With MESA by www.puppet-master.net
