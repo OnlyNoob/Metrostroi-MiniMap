@@ -40,10 +40,10 @@ function ENT:Use( activator, caller, useType, value )
 				else 
 					Entity(self.OrigSignal):OpenRoute(1)
 				end
-			elseif Entity(self.OrigSignal).RedSignal and string.match( Entity(self.OrigSignal).LensesStr, "W", 0 ) and !Entity(self.OrigSignal).OverrideTrackOccupied then
+			elseif Entity(self.OrigSignal).RedSignal and string.match( Entity(self.OrigSignal).LensesStr, "W", 0 ) and !Entity(self.OrigSignal).Close then
 				Entity(self.OrigSignal).InvasionSignal = !Entity(self.OrigSignal).InvasionSignal
 			elseif !Entity(self.OrigSignal).Routes[1].Manual then
-				Entity(self.OrigSignal).OverrideTrackOccupied = !Entity(self.OrigSignal).OverrideTrackOccupied
+				Entity(self.OrigSignal).Close = !Entity(self.OrigSignal).Close
 			end
 		end
 	end
