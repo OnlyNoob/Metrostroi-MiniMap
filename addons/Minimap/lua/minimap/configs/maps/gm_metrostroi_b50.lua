@@ -6,6 +6,8 @@ if SERVER then
 	MiniMap.MiniTrainsOffset = 1
 	MiniMap.Model = nil
 	MiniMap.Updated = false -- New signals, updated trains?
+	MiniMap.StationNames = {}
+	MiniMap.SemiAutoSignals = {}
 else
 	--Client side config--
 	--MiniMap custom render bounds--

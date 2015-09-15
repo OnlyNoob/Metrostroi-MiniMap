@@ -122,7 +122,7 @@ end
 
 function MiniMap.ResetSignalsOverride()
 	for k,v in pairs(ents.FindByClass("gmod_track_signal")) do
-		v.OverrideTrackOccupied = false
+		v.Close = false
 		if (MiniMap.Updated) then
 			v.InvasionSignal = false
 		end

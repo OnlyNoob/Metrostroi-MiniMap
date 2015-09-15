@@ -37,8 +37,10 @@ function ENT:Draw()
     self.Panel:Text("Диспетчер:", "DermaLarge", 0, 5)
     self.Panel:Text(MiniMap.ActiveDispatcher, "DermaLarge", 70, 5, _, TEXT_ALIGN_LEFT)
 	self.Panel:Text("Светофоры:", "DermaLarge", 0, 70)
-    self.Panel:Text("TIP: Нажмите 'C' и наведите на минивагон", "DermaLarge", -70, 100, _, TEXT_ALIGN_LEFT)
-    self.Panel:Text("если табличка над ним не отображается.", "DermaLarge", -70, 125, _, TEXT_ALIGN_LEFT)
+	self.Panel:Text("Всего составов:", "DermaLarge", -70, 100, _, TEXT_ALIGN_LEFT)
+	self.Panel:Text(GetGlobalInt("metrostroi_train_count", 0),"DermaLarge", 120, 100, _, TEXT_ALIGN_LEFT)
+    self.Panel:Text("TIP: Нажмите 'C' и наведите на минивагон", "DermaLarge", -70, 130, _, TEXT_ALIGN_LEFT)
+    self.Panel:Text("если табличка над ним не отображается.", "DermaLarge", -70, 155, _, TEXT_ALIGN_LEFT)
     -- Draw a button (text, font, x, y, w, h, [color])
     -- Return value is boolean indicating whether left mouse or +use was pressed during this frame
     if self.Panel:Button("Занять пост", "DermaDefaultBold", -70, 40, 100, 25) then

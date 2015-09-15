@@ -1,7 +1,7 @@
 --[[
 	The MIT License (MIT)
 
-	Copyright (c) 2014 Wyozi <http://www.github.com/wyozi>
+	Copyright (c) 2014-2015 Wyozi <http://www.github.com/wyozi>
 
 	Permission is hereby granted, free of charge, to any person obtaining a copy
 	of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +25,7 @@
 -- Localize globals
 local bor, band, lshift = bit.bor, bit.band, bit.lshift
 
+local old_tdui = tdui -- autorefresh support
 tdui = {}
 
 -- Input constants.
@@ -65,10 +66,10 @@ local d = {}
 function tdui.Deprecate(msg)
 	local dbg = debug.getinfo(3, "Sl")
 	local srcstr = string.format("%s@%d", dbg.source, dbg.currentline)
-	
+
 	if d[srcstr] then return end
 	d[srcstr] = true
-	
+
 	if not msg then
 		local thisdbg = debug.getinfo(2, "n")
 		msg = thisdbg.name .. "() is deprecated"
@@ -78,42 +79,92 @@ end
 
 -- The main function. See below for functions in tdui.Meta
 function tdui.Create()
-	return setmetatable({}, tdui.Meta)
+	local ui = setmetatable({}, tdui.Meta)
+	hook.Call("TDUICreated", nil, ui)
+	return ui
 end
+
+-- This is accessed so often we can improve performance by making it local
+local TDUI_DEFAULT_SKIN
+
+tdui.Skins = (old_tdui and old_tdui.Skins) or {}
+function tdui.RegisterSkin(name, tbl)
+	tdui.Skins[name] = tbl
+	if name == "default" then TDUI_DEFAULT_SKIN = tbl end
+end
+
+tdui.RenderOperations = {
+	["stencil_rect"] = function(_self, x, y, w, h)
+		render.ClearStencil()
+		render.SetStencilEnable(true)
+		render.SetStencilCompareFunction(STENCIL_ALWAYS)
+		render.SetStencilPassOperation(STENCIL_REPLACE)
+		render.SetStencilFailOperation(STENCIL_KEEP)
+		render.SetStencilZFailOperation(STENCIL_KEEP)
+
+		render.SetStencilWriteMask(1)
+		render.SetStencilTestMask(1)
+		render.SetStencilReferenceValue(1)
+
+		render.OverrideColorWriteEnable(true, false)
+
+		surface.SetDrawColor(tdui.COLOR_WHITE)
+		surface.DrawRect(x, y, w, h)
+
+		render.OverrideColorWriteEnable(false, false)
+
+		render.SetStencilCompareFunction(STENCIL_EQUAL)
+	end,
+	["stencil_off"] = function()
+		render.SetStencilEnable(false)
+	end
+}
 
 local tdui_meta = {}
 tdui_meta.__index = tdui_meta
-
 tdui.Meta = tdui_meta
 
+function tdui_meta:SetSkin(skin)
+	self._skin = skin
+	self._skinobj = tdui.Skins[skin]
+end
+function tdui_meta:GetSkin()
+	return self._skin
+end
+
+function tdui_meta:_GetSkinParams(type, ...)
+	local defskin = TDUI_DEFAULT_SKIN
+	local skin = self._skinobj or defskin
+
+	local deftbl = defskin[type]
+	if not deftbl then return end
+
+	local tbl = skin[type] or deftbl
+
+	local x = {}
+	for k,v in pairs{...} do
+		x[k] = tbl[v] or deftbl[v]
+	end
+
+	return unpack(x)
+end
+
 function tdui_meta:EnableRectStencil(x, y, w, h)
-	render.ClearStencil()
-	render.SetStencilEnable(true)
-	render.SetStencilCompareFunction(STENCIL_ALWAYS)
-	render.SetStencilPassOperation(STENCIL_REPLACE)
-	render.SetStencilFailOperation(STENCIL_KEEP)
-	render.SetStencilZFailOperation(STENCIL_KEEP)
-	
-	render.SetStencilWriteMask(1)
-	render.SetStencilTestMask(1)
-	render.SetStencilReferenceValue(1)
-
-	render.OverrideColorWriteEnable(true, false)
-
-	surface.SetDrawColor(tdui.COLOR_WHITE)
-	surface.DrawRect(x, y, w, h)
-
-	render.OverrideColorWriteEnable(false, false)
-
-	render.SetStencilCompareFunction(STENCIL_EQUAL)
+	self:_QueueRenderOP("stencil_rect", x, y, w, h)
 end
 
 function tdui_meta:DisableStencil()
-	render.SetStencilEnable(false)
+	self:_QueueRenderOP("stencil_off")
 end
 
 function tdui_meta:DrawRect(x, y, w, h, clr, out_clr)
-	clr = clr or tdui.COLOR_WHITE_TRANSLUCENT
+	local color, borderColor = self:_GetSkinParams("rect", "color", "borderColor")
+
+	clr = clr or color
+	out_clr = out_clr or borderColor
+
+	local uiscale = self:GetUIScale()
+	x, y, w, h = x * uiscale, y * uiscale, w * uiscale, h * uiscale
 
 	surface.SetDrawColor(clr)
 	surface.DrawRect(x, y, w, h)
@@ -125,30 +176,33 @@ function tdui_meta:DrawRect(x, y, w, h, clr, out_clr)
 
 	self:_ExpandRenderBounds(x, y, w, h)
 end
+tdui.RenderOperations["rect"] = tdui_meta.DrawRect
 function tdui_meta:Rect(x, y, w, h, clr, out_clr)
-	self:_QueueRender(function()
-		self:DrawRect(x, y, w, h, clr, out_clr)
-	end)
+	self:_QueueRenderOP("rect", x, y, w, h, clr, out_clr)
 end
 
 function tdui_meta:DrawLine(x, y, x2, y2, clr)
-	clr = clr or tdui.COLOR_WHITE
+	local color = self:_GetSkinParams("line", "color")
+	clr = clr or color
+
+	local uiscale = self:GetUIScale()
+	x, y, x2, y2 = x * uiscale, y * uiscale, x2 * uiscale, y2 * uiscale
 
 	surface.SetDrawColor(clr)
 	surface.DrawLine(x, y, x2, y2)
 
 	local bx, by = math.min(x, x2), math.min(y, y2)
-	local bw, bh = math.max(x, x2)-bx, math.max(y, y2)-by
+	local bw, bh = math.max(x, x2) - bx, math.max(y, y2) - by
 	self:_ExpandRenderBounds(bx, by, bw, bh)
 end
+tdui.RenderOperations["line"] = tdui_meta.DrawLine
 function tdui_meta:Line(x, y, x2, y2, clr)
-	self:_QueueRender(function()
-		self:DrawLine(x, y, x2, y2, clr)
-	end)
+	self:_QueueRenderOP("line", x, y, x2, y2, clr)
 end
 
 function tdui_meta:DrawPolygon(verts, clr, mat)
-	clr = clr or tdui.COLOR_WHITE_TRANSLUCENT
+	local color = self:_GetSkinParams("polygon", "color")
+	clr = clr or color
 
 	surface.SetDrawColor(clr)
 
@@ -160,43 +214,75 @@ function tdui_meta:DrawPolygon(verts, clr, mat)
 
 	surface.DrawPoly(verts)
 end
+tdui.RenderOperations["polygon"] = tdui_meta.DrawPolygon
 function tdui_meta:Polygon(verts, clr, mat)
-	self:_QueueRender(function()
-		self:DrawPolygon(verts, clr, mat)
-	end)
+	self:_QueueRenderOP("polygon", verts, clr, mat)
 end
 
-function tdui_meta:DrawMat(mat, x, y, w, h)
+function tdui_meta:DrawMat(mat, x, y, w, h, clr)
+	clr = clr or tdui.COLOR_WHITE
+
+	local uiscale = self:GetUIScale()
+	x, y, w, h = x * uiscale, y * uiscale, w * uiscale, h * uiscale
+
 	surface.SetMaterial(mat)
-	surface.SetDrawColor(tdui.COLOR_WHITE)
+	surface.SetDrawColor(clr)
 	surface.DrawTexturedRect(x, y, w, h)
 
 	self:_ExpandRenderBounds(x, y, w, h)
 end
-function tdui_meta:Mat(mat, x, y, w, h)
-	self:_QueueRender(function()
-		self:DrawMat(mat, x, y, w, h)
-	end)
+tdui.RenderOperations["mat"] = tdui_meta.DrawMat
+function tdui_meta:Mat(mat, x, y, w, h, clr)
+	self:_QueueRenderOP("mat", mat, x, y, w, h, clr)
+end
+
+function tdui_meta:_ParseFont(font)
+	-- special font
+	if font:sub(1, 1) == "!" then
+		local name, size = font:match("!([^@]+)@(.+)")
+		local parsedSize = tonumber(size)
+
+		local uiscale = self:GetUIScale()
+		parsedSize = math.Round(parsedSize * uiscale)
+
+		local cachedName = string.format("TDUICached_%s_%d", name, parsedSize)
+
+		self._cachedFonts = self._cachedFonts or {}
+		if self._cachedFonts[cachedName] then return cachedName end
+
+		surface.CreateFont(cachedName, {
+			font = name,
+			size = parsedSize
+		})
+
+		self._cachedFonts[cachedName] = true
+		return cachedName
+	end
+	return font
 end
 
 function tdui_meta:DrawText(str, font, x, y, clr, halign, valign, scissor_rect)
-	clr = clr or tdui.COLOR_WHITE
+	local color = self:_GetSkinParams("text", "color")
+	clr = clr or color or tdui.COLOR_WHITE
 
-	surface.SetFont(font)
+	local uiscale = self:GetUIScale()
+	x, y = x * uiscale, y * uiscale
+
+	surface.SetFont(self:_ParseFont(font))
 	surface.SetTextColor(clr)
 
 	local tw, th = surface.GetTextSize(str)
 
 	-- Horizontal align default: TEXT_ALIGN_CENTER
-	local aligned_x = x-tw/2
+	local aligned_x = x - tw / 2
 	if     halign == TEXT_ALIGN_LEFT then    aligned_x = x
-	elseif halign == TEXT_ALIGN_RIGHT then   aligned_x = x-tw
+	elseif halign == TEXT_ALIGN_RIGHT then   aligned_x = x - tw
 	end
 
 	-- Vertical align default: TEXT_ALIGN_TOP
 	local aligned_y = y
-	if     valign == TEXT_ALIGN_CENTER then  aligned_y = y-th/2
-	elseif valign == TEXT_ALIGN_BOTTOM then  aligned_y = y-th
+	if     valign == TEXT_ALIGN_CENTER then  aligned_y = y - th / 2
+	elseif valign == TEXT_ALIGN_BOTTOM then  aligned_y = y - th
 	end
 
 	surface.SetTextPos(aligned_x, aligned_y)
@@ -213,48 +299,91 @@ function tdui_meta:DrawText(str, font, x, y, clr, halign, valign, scissor_rect)
 
 	self:_ExpandRenderBounds(aligned_x, aligned_y, tw, th)
 end
+tdui.RenderOperations["text"] = tdui_meta.DrawText
 function tdui_meta:Text(str, font, x, y, clr, halign, valign, scissor_rect)
-	self:_QueueRender(function()
-		self:DrawText(str, font, x, y, clr, halign, valign, scissor_rect)
-	end)
+	self:_QueueRenderOP("text", str, font, x, y, clr, halign, valign, scissor_rect)
 end
 
-function tdui_meta:DrawButton(str, font, x, y, w, h, clr)
-	clr = clr or tdui.COLOR_WHITE
+function tdui_meta:DrawButton(input, font, x, y, w, h, clr, hover_clr)
+	local fgColor, bgColor, fgHoverColor, fgPressColor, bgHoverColor, bgPressColor =
+		self:_GetSkinParams("button", "fgColor", "bgColor", "fgHoverColor", "fgPressColor", "bgHoverColor", "bgPressColor")
 
-	surface.SetFont(font)
+	-- Override skin constants with params if needed
+	fgColor = clr or fgColor
+	fgHoverColor = hover_clr or fgHoverColor
 
-	local inputstate = self:_CheckInputInRect(x, y, w, h)
+	surface.SetFont(self:_ParseFont(font))
+
+	local uiscale = self:GetUIScale()
+	local inputstate = self:_CheckInputInRect(x * uiscale, y * uiscale, w * uiscale, h * uiscale)
 
 	local just_pressed = band(inputstate, tdui.FSTATE_JUSTPRESSED) ~= 0
 	local pressing = band(inputstate, tdui.FSTATE_PRESSING) ~= 0
 	local hovering = band(inputstate, tdui.FSTATE_HOVERING) ~= 0
 
+	local finalFgColor, finalBgColor = fgColor, bgColor
+
 	if just_pressed or pressing then
-		clr = tdui.COLOR_ORANGE_DARK
+		finalFgColor, finalBgColor = fgPressColor, bgPressColor
 	elseif hovering then
-		clr = tdui.COLOR_ORANGE
+		finalFgColor, finalBgColor = fgHoverColor, bgHoverColor
 	end
 
-	self:DrawText(str, font, x + w/2, y + h/2, clr, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-	self:DrawRect(x, y, w, h, tdui.COLOR_BLACK_TRANSPARENT, clr, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	self:DrawRect(x, y, w, h, finalBgColor, finalFgColor)
 
-	self:_ExpandRenderBounds(x, y, w, h)
+	-- if it's a table we need ITERATION
+	if type(input) == "table" then
+		local uiscale = self:GetUIScale()
+		local padding = 3
+
+		local in_w = -padding -- one instance of padding needs to be subtracted, we do it here
+		for k,v in pairs(input) do
+			local size
+			if type(v) == "IMaterial" then
+				size = v:Width() * uiscale
+			elseif type(v) == "table" and v.mat then
+				size = (v.width or v.mat:Width()) * uiscale * 0.5
+			else
+				size = surface.GetTextSize(v)
+			end
+
+			in_w = in_w + (size + padding)
+		end
+
+		local in_x = -in_w / 2
+		for k,v in pairs(input) do
+			local size
+			if type(v) == "IMaterial" then
+				self:DrawMat(v, x + w / 2 + in_x, y + h / 2 - v:Height() / 2, v:Width(), v:Height())
+				size = v:Width() * uiscale
+			elseif type(v) == "table" and v.mat then
+				local matw, math = v.width or v.mat:Width(), v.height or v.mat:Height()
+				self:DrawMat(v.mat, x + w / 2 + in_x, y + h / 2 - math / 2, matw, math)
+				size = (v.width or v.mat:Width()) * uiscale
+			else
+				self:DrawText(v, font, x + w / 2 + in_x, y + h / 2, finalFgColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+				size = surface.GetTextSize(v)
+			end
+			in_x = in_x + (size + padding)
+		end
+	else
+		self:DrawText(input, font, x + w / 2, y + h / 2, finalFgColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	end
 
 	if not self:ShouldAcceptInput() then
 		return false, false, false
 	end
 	return just_pressed, pressing, hovering
 end
-function tdui_meta:Button(str, font, x, y, w, h, clr)
-	self:_QueueRender(function()
-		self:DrawButton(str, font, x, y, w, h, clr)
-	end)
+tdui.RenderOperations["button"] = tdui_meta.DrawButton
+function tdui_meta:Button(str, font, x, y, w, h, clr, hover_clr)
+	self:_QueueRenderOP("button", str, font, x, y, w, h, clr, hover_clr)
 
 	local just_pressed, pressing, hovering
 
 	if self:ShouldAcceptInput() then
-		local inputstate = self:_CheckInputInRect(x, y, w, h)
+		local uiscale = self:GetUIScale()
+		local inputstate = self:_CheckInputInRect(x * uiscale, y * uiscale, w * uiscale, h * uiscale)
 
 		just_pressed = band(inputstate, tdui.FSTATE_JUSTPRESSED) ~= 0
 		pressing = band(inputstate, tdui.FSTATE_PRESSING) ~= 0
@@ -266,7 +395,6 @@ function tdui_meta:Button(str, font, x, y, w, h, clr)
 	return just_pressed, pressing, hovering
 end
 
-
 function tdui_meta:DrawCursor()
 	local rb = self._renderBounds
 
@@ -277,22 +405,24 @@ function tdui_meta:DrawCursor()
 	if band(inputstate, tdui.FSTATE_HOVERING) == 0 then
 		return
 	end
-	
+
+	local color, hoverColor, pressColor = self:_GetSkinParams("cursor", "color", "hoverColor", "pressColor")
 	if band(inputstate, tdui.FSTATE_JUSTPRESSED) ~= 0 then
-		surface.SetDrawColor(tdui.COLOR_RED)
+		surface.SetDrawColor(hoverColor)
 	elseif band(inputstate, tdui.FSTATE_PRESSING) ~= 0 then
-		surface.SetDrawColor(tdui.COLOR_ORANGE)
+		surface.SetDrawColor(pressColor)
 	else
-		surface.SetDrawColor(tdui.COLOR_WHITE)
+		surface.SetDrawColor(color)
 	end
 
-	surface.DrawLine(self._mx-2, self._my, self._mx+2, self._my)
-	surface.DrawLine(self._mx, self._my-2, self._mx, self._my+2)
+	local cursorSize = math.Round(2 * self:GetUIScale())
+
+	surface.DrawLine(self._mx - cursorSize, self._my, self._mx + cursorSize, self._my)
+	surface.DrawLine(self._mx, self._my - cursorSize, self._mx, self._my + cursorSize)
 end
+tdui.RenderOperations["cursor"] = tdui_meta.DrawCursor
 function tdui_meta:Cursor()
-	self:_QueueRender(function()
-		self:DrawCursor()
-	end)
+	self:_QueueRenderOP("cursor")
 end
 
 function tdui_meta:Custom(fn)
@@ -307,8 +437,25 @@ function tdui_meta:_QueueRender(fn)
 	end
 
 	self.renderQueue = self.renderQueue or {}
+	self.renderQueue[#self.renderQueue + 1] = fn
+end
 
-	self.renderQueue[#self.renderQueue+1] = fn
+-- Queues a render operation to be done during next render pass
+function tdui_meta:_QueueRenderOP(op, ...)
+	local fn = tdui.RenderOperations[op]
+	if not fn then
+		error("Trying to queue inexistent render operation '" .. op .. "''")
+		return
+	end
+
+	if self._rendering then
+		local r, e = pcall(fn, self)
+		if not r then print("TDUI rendering error: ", e) end
+		return
+	end
+
+	self.renderQueue = self.renderQueue or {}
+	self.renderQueue[#self.renderQueue + 1] = {fn, ...}
 end
 
 --- Should be called every time something is drawn with an approximate bounding
@@ -317,8 +464,8 @@ function tdui_meta:_ExpandRenderBounds(x, y, w, h)
 	self._renderBounds.x = math.min(self._renderBounds.x, x)
 	self._renderBounds.y = math.min(self._renderBounds.y, y)
 
-	self._renderBounds.x2 = math.max(self._renderBounds.x2, x+w)
-	self._renderBounds.y2 = math.max(self._renderBounds.y2, y+h)
+	self._renderBounds.x2 = math.max(self._renderBounds.x2, x + w)
+	self._renderBounds.y2 = math.max(self._renderBounds.y2, y + h)
 end
 
 function tdui_meta:_WorldToLocal(rayOrigin, rayDirection)
@@ -326,28 +473,17 @@ function tdui_meta:_WorldToLocal(rayOrigin, rayDirection)
 	local angles = self._angles
 	local scale = self._scale
 
-	local planePos = pos
 	local planeNormal = angles:Up()
 
-	local scale = self._scale
-
-	local hitPos = util.IntersectRayWithPlane(rayOrigin, rayDirection, planePos, planeNormal)
+	local hitPos = util.IntersectRayWithPlane(rayOrigin, rayDirection, pos, planeNormal)
 	if hitPos then
-		local diff = hitPos - planePos
+		local diff = pos - hitPos
 
-		-- Magic
-		diff:Rotate(Angle(0, -angles.y, 0))
-		diff:Rotate(Angle(-angles.p, 0, 0))
-		diff:Rotate(Angle(0, 0, -angles.r))
+		-- This cool code is from Willox's keypad CalculateCursorPos
+		local x = diff:Dot(-angles:Forward()) / scale
+		local y = diff:Dot(-angles:Right()) / scale
 
-		local xchange = diff.x
-		local ychange = diff.y
-
-		xchange = xchange * (1/scale)
-		ychange = ychange * (1/scale)
-
-		local finalx, finaly = xchange, -ychange
-		return finalx, finaly, hitPos
+		return x, y, hitPos
 	end
 end
 
@@ -363,7 +499,7 @@ function tdui_meta:_CheckInputInRect(x, y, w, h, input)
 		return state
 	end
 
-	if self._mx >= x and self._my >= y and self._mx <= (x+w) and self._my <= (y+h) then
+	if self._mx >= x and self._my >= y and self._mx <= (x + w) and self._my <= (y + h) then
 		state = bor(state, tdui.FSTATE_HOVERING)
 
 		if band(self._justPressed, input) ~= 0 then
@@ -384,7 +520,7 @@ local traceEntFilter = function(ent)
 end
 function tdui_meta:_ComputeScreenMouse()
 	local eyepos = LocalPlayer():EyePos()
-	local eyenormal = gui.ScreenToVector(ScrW()/2, ScrH()/2)
+	local eyenormal = gui.ScreenToVector(ScrW() / 2, ScrH() / 2)
 
 	-- Calculate mouse position in local space
 	local mx, my, hitPos = self:_WorldToLocal(eyepos, eyenormal)
@@ -508,8 +644,6 @@ function tdui_meta:SetIgnoreZ(b)
 end
 
 function tdui_meta:PreRenderReset()
-	self:_UpdatePAS(pos, angles, scale)
-
 	-- Reset parameters
 	self.renderQueue = self.renderQueue or {}
 	self:_UpdateInputStatus()
@@ -528,7 +662,7 @@ end
 
 function tdui_meta:BeginRender()
 	if self._rendering then error("Calling BeginRender() with an ongoing render") end
-	
+
 	self:PreRenderReset()
 
 	-- Set IgnoreZ
@@ -544,8 +678,9 @@ function tdui_meta:BeginRender()
 	render.PushFilterMag(TEXFILTER.ANISOTROPIC)
 
 	cam.Start3D2D(self._pos, self._angles, self._scale)
-	
+
 	self._rendering = true
+	self._renderStarted = SysTime()
 end
 
 function tdui_meta:PostRenderReset()
@@ -559,13 +694,15 @@ function tdui_meta:PostRenderReset()
 	else
 		self._frameRenderCount = 1
 	end
+
+	self._renderEnded = SysTime()
 end
 
 function tdui_meta:EndRender()
 	if not self._rendering then error("Calling EndRender() without matching BeginRender()") end
 
 	self._rendering = false
-	
+
 	-- End render context
 	cam.End3D2D()
 
@@ -582,8 +719,18 @@ function tdui_meta:EndRender()
 end
 
 function tdui_meta:RenderQueued()
-	for i=1, #self.renderQueue do
-		local r, e = pcall(self.renderQueue[i], self)
+	for i = 1, #self.renderQueue do
+		local fn = self.renderQueue[i]
+
+		local r, e
+
+		-- If its a queued operation
+		if type(fn) == "table" then
+			r, e =  pcall(fn[1], self, unpack(fn, 2))
+		else
+			r, e = pcall(fn, self)
+		end
+
 		if not r then print("TDUI rendering error: ", e) end
 	end
 end
@@ -623,6 +770,10 @@ function tdui_meta:IsFirstRenderThisFrame()
 	return not self._frameRenderCount or self._frameRenderCount == 1
 end
 
+function tdui_meta:WasRenderedThisFrame()
+	return self._lastRenderFrame == FrameNumber()
+end
+
 -- Are we rendering to the "main" render target aka the screen
 function tdui_meta:IsWorldRenderpass()
 	return not IsValid(render.GetRenderTarget())
@@ -631,6 +782,16 @@ end
 -- Note: does not affect return values from CheckInputInRect
 function tdui_meta:ShouldAcceptInput()
 	return self:IsFirstRenderThisFrame()
+end
+
+-- Scales all UI elements (including fonts that use custom format)
+-- Behind the scenes this scales all x, y, w, h etc by this value
+-- Can be used for testing or because of laziness
+function tdui_meta:SetUIScale(scale)
+	self._uiscale = scale
+end
+function tdui_meta:GetUIScale()
+	return self._uiscale or 1
 end
 
 -- Create singleton instance of TDUI
@@ -671,3 +832,34 @@ tdui.SetIgnoreZ  = curry(singleton.SetIgnoreZ, singleton)
 function tdui.End()
 	singleton:EndRender()
 end
+
+-- Register default skin
+tdui.RegisterSkin("default", {
+	rect = {
+		color = tdui.COLOR_WHITE_TRANSLUCENT,
+		borderColor = nil
+	},
+	text = {
+		color = tdui.COLOR_WHITE
+	},
+	line = {
+		color = tdui.COLOR_WHITE
+	},
+	polygon = {
+		color = tdui.COLOR_WHITE_TRANSLUCENT
+	},
+	button = {
+		fgColor = tdui.COLOR_WHITE,
+		fgHoverColor = tdui.COLOR_ORANGE,
+		fgPressColor = tdui.COLOR_ORANGE_DARK,
+
+		bgColor = tdui.COLOR_BLACK_TRANSPARENT,
+		bgHoverColor = tdui.COLOR_BLACK_TRANSPARENT,
+		bgPressColor = tdui.COLOR_BLACK_TRANSPARENT,
+	},
+	cursor = {
+		color = tdui.COLOR_WHITE,
+		hoverColor = tdui.COLOR_RED,
+		pressColor = tdui.COLOR_ORANGE
+	}
+})

@@ -5,7 +5,7 @@ if SERVER then
 	--MiniMap minitrains offset--
 	MiniMap.MiniTrainsOffset = 0
 	MiniMap.Model = "gm_mus_orange_line_long_f"
-	MiniMap.Updated = false -- New signals, updated trains?
+	MiniMap.Updated = true -- New signals, updated trains?
 	MiniMap.StationNames = {
 	[110] = "Garry's Mod Workers",
 	[111] = "VHE",
@@ -18,6 +18,7 @@ if SERVER then
 	[200] = "Lithium",
 	[201] = "SENT Factory Station",
 	[202] = "Airport"}
+	MiniMap.SemiAutoSignals = {"D2 1","D2 3","D2 5","D2 7","D2 2","D2 4","D2 6","D2 8"}
 else
 	--Client side config--
 	--MiniMap custom render bounds--
