@@ -52,6 +52,9 @@ function ENT:Draw()
     if self.Panel:Button("Сбросить", "DermaDefaultBold", 75, 75, 120, 25) then
         RunConsoleCommand("metrostroi_minimap_resetsignals")
     end
+	if self.Panel:Button("Исправить отображение", "DermaDefaultBold", -70, 190, 160, 25) then
+		self:FixRender()
+	end
 
     -- Draws a simple crosshair cursor at current mouse position
     self.Panel:Cursor()
@@ -68,5 +71,11 @@ function ENT:Draw()
 	        	draw.DrawText(sign[3], "DermaDefault", 0, 0, color_white);
 	    	cam.End3D2D()
 		end
+	end
+end
+
+function ENT:FixRender()
+	if (self:IsValid()) then
+		self:SetRenderBounds( self:OBBMins(), self:OBBMaxs(), (MiniMap.RenderBoundsAdd or Vector( 150, 150, 100 )) )
 	end
 end
