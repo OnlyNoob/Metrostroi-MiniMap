@@ -24,34 +24,34 @@ end
 
 function ENT:Draw()
 	self.BaseClass.Draw(self)
-    self:DrawModel()
-    local offset = self:GetZOffset()
+	self:DrawModel()
+	local offset = self:GetZOffset()
 
-    self.Panel = self.Panel or tdui.Create()
+	self.Panel = self.Panel or tdui.Create()
 
-    -- Draw a rectangle (x, y, w, h, [fill_color], [outline_color])
-    self.Panel:Rect(-80, 0, 560, 250, _, Color(255, 255, 255))
+	-- Draw a rectangle (x, y, w, h, [fill_color], [outline_color])
+	self.Panel:Rect(-80, 0, 560, 250, _, Color(255, 255, 255))
 
-    -- Draw a line of text (text, font, x, y, [color], [halign], [valign])
-    -- Note: text is implicitly horizontally centered
-    self.Panel:Text("Диспетчер:", "DermaLarge", 0, 5)
-    self.Panel:Text(MiniMap.ActiveDispatcher, "DermaLarge", 70, 5, _, TEXT_ALIGN_LEFT)
+	-- Draw a line of text (text, font, x, y, [color], [halign], [valign])
+	-- Note: text is implicitly horizontally centered
+	self.Panel:Text("Диспетчер:", "DermaLarge", 0, 5)
+	self.Panel:Text(MiniMap.ActiveDispatcher, "DermaLarge", 70, 5, _, TEXT_ALIGN_LEFT)
 	self.Panel:Text("Светофоры:", "DermaLarge", 0, 70)
 	self.Panel:Text("Всего вагонов:", "DermaLarge", -70, 100, _, TEXT_ALIGN_LEFT)
 	self.Panel:Text(GetGlobalInt("metrostroi_train_count", 0),"DermaLarge", 120, 100, _, TEXT_ALIGN_LEFT)
-    self.Panel:Text("TIP: Нажмите 'C' и наведите на минивагон", "DermaLarge", -70, 130, _, TEXT_ALIGN_LEFT)
-    self.Panel:Text("если табличка над ним не отображается.", "DermaLarge", -70, 155, _, TEXT_ALIGN_LEFT)
-    -- Draw a button (text, font, x, y, w, h, [color])
-    -- Return value is boolean indicating whether left mouse or +use was pressed during this frame
-    if self.Panel:Button("Занять пост", "DermaDefaultBold", -70, 40, 100, 25) then
-        RunConsoleCommand("metrostroi_minimap_becomedispatcher")
-    end
-    if self.Panel:Button("Освободить пост", "DermaDefaultBold", 40, 40, 120, 25) then
-        RunConsoleCommand("metrostroi_minimap_leavedispatcher")
-    end
-    if self.Panel:Button("Сбросить", "DermaDefaultBold", 75, 75, 120, 25) then
-        RunConsoleCommand("metrostroi_minimap_resetsignals")
-    end
+	self.Panel:Text("TIP: Нажмите 'C' и наведите на минивагон", "DermaLarge", -70, 130, _, TEXT_ALIGN_LEFT)
+	self.Panel:Text("если табличка над ним не отображается.", "DermaLarge", -70, 155, _, TEXT_ALIGN_LEFT)
+	-- Draw a button (text, font, x, y, w, h, [color])
+	-- Return value is boolean indicating whether left mouse or +use was pressed during this frame
+	if self.Panel:Button("Занять пост", "DermaDefaultBold", -70, 40, 100, 25) then
+		RunConsoleCommand("metrostroi_minimap_becomedispatcher")
+	end
+	if self.Panel:Button("Освободить пост", "DermaDefaultBold", 40, 40, 120, 25) then
+		RunConsoleCommand("metrostroi_minimap_leavedispatcher")
+	end
+	if self.Panel:Button("Сбросить", "DermaDefaultBold", 75, 75, 120, 25) then
+		RunConsoleCommand("metrostroi_minimap_resetsignals")
+	end
 	if self.Panel:Button("Исправить отображение", "DermaDefaultBold", -70, 190, 160, 25) then
 		self:FixRender()
 	end
