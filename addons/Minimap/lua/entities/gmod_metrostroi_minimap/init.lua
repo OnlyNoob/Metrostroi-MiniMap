@@ -115,6 +115,7 @@ function ENT:EndTouch(ent)
 			MiniMap.ResetSignalsOverride()
 			if (MiniMap.Updated) then
 				MiniMap.ChangeSignalsMode(false)
+				MiniMap.ResetSwitchesOverride()
 			end
 		end
 	end

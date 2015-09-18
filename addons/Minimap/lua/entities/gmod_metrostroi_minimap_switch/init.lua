@@ -25,9 +25,17 @@ function ENT:Use( activator, caller, useType, value )
 	if Entity(self.OrigSwitch):IsValid() then
 		if (MiniMap.ActiveDispatcher) and (caller:UserID() == MiniMap.ActiveDispatcher:UserID()) then
 			if Entity(self.OrigSwitch).AlternateTrack then
-				Entity(self.OrigSwitch):SendSignal("main",Entity(self.OrigSwitch):GetChannel())
+				if MiniMap.BlockSwitches then
+					Entity(self.OrigSwitch).LockedSignal = "main"
+				else
+					Entity(self.OrigSwitch):SendSignal("main",Entity(self.OrigSwitch):GetChannel())
+				end
 			else
-				Entity(self.OrigSwitch):SendSignal("alt",Entity(self.OrigSwitch):GetChannel())
+				if MiniMap.BlockSwitches then
+					Entity(self.OrigSwitch).LockedSignal = "alt"
+				else
+					Entity(self.OrigSwitch):SendSignal("alt",Entity(self.OrigSwitch):GetChannel())
+				end
 			end
 		end
 	end

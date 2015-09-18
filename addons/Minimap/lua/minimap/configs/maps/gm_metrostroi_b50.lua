@@ -8,6 +8,7 @@ if SERVER then
 	MiniMap.Updated = false -- New signals, updated trains?
 	MiniMap.StationNames = {}
 	MiniMap.SemiAutoSignals = {}
+	MiniMap.BlockSwitches = true
 else
 	--Client side config--
 	--MiniMap custom render bounds--

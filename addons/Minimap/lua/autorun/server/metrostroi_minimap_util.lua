@@ -1,6 +1,6 @@
 AddCSLuaFile("autorun/client/cl_metrostroi_minimap_util.lua")
 AddCSLuaFile("autorun/client/3d2dimgui.lua")
-AddCSLuaFile(string.format("configs/maps/%s.lua",game.GetMap()))
+AddCSLuaFile(string.format("minimap/configs/maps/%s.lua",game.GetMap()))
 
 if !MiniMap then MiniMap = {} end
 MiniMap.ActiveDispatcher = nil
@@ -93,6 +93,7 @@ function MiniMap.LeaveDispatcher(ply)
 		MiniMap.ResetSignalsOverride()
 		if (MiniMap.Updated) then
 			MiniMap.ChangeSignalsMode(false)
+			MiniMap.ResetSwitchesOverride()
 		end
 	end
 end
@@ -127,6 +128,14 @@ function MiniMap.ResetSignalsOverride()
 			v.InvasionSignal = false
 		else
 			v.OverrideTrackOccupied = false
+		end
+	end
+end
+
+function MiniMap.ResetSwitchesOverride()
+	if MiniMap.BlockSwitches then
+		for k,v in pairs(ents.FindByClass("gmod_track_switch")) do
+			v.LockedSignal = nil
 		end
 	end
 end

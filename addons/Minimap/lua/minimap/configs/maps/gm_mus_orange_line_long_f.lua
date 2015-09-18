@@ -19,6 +19,7 @@ if SERVER then
 	[201] = "SENT Factory Station",
 	[202] = "Airport"}
 	MiniMap.SemiAutoSignals = {"D3","D4","D5","D6","D2 1","D2 3","D2 5","D2 7","D2 2","D2 4","D2 6","D2 8"}
+	MiniMap.BlockSwitches = true
 else
 	--Client side config--
 	--MiniMap custom render bounds--
