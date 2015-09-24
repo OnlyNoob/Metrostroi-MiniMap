@@ -10,7 +10,7 @@ end
 --Load map config--
 -------------------
 
-include(string.format("configs/maps/%s.lua",game.GetMap()))
+include(string.format("minimap/configs/maps/%s.lua",game.GetMap()))
 
 -------------------
 --Receive data-----

@@ -7,6 +7,7 @@ function ENT:Initialize()
 	self:SetModelScale(0.02, 0)
 	self.Sprites = {}
 	self.OrigSignal = nil
+	self.LastUse = 0
 	self.EnableDelay = {}
 	
 	-- Setup nominal signals (give it few seconds to establish)
@@ -34,19 +35,28 @@ end
 function ENT:Use( activator, caller, useType, value )
 	if Entity(self.OrigSignal):IsValid() then
 		if (MiniMap.ActiveDispatcher) and (caller:UserID() == MiniMap.ActiveDispatcher:UserID()) then
-			if Entity(self.OrigSignal).Routes[1] and Entity(self.OrigSignal).Routes[1].Manual then
-				if Entity(self.OrigSignal).Routes[1].IsOpened then
-					Entity(self.OrigSignal):CloseRoute(1)
-				else 
-					Entity(self.OrigSignal):OpenRoute(1)
+			if ((CurTime() - self.LastUse) > 5) then
+				caller:PrintMessage( HUD_PRINTCENTER, Entity(self.OrigSignal).Name )
+			else
+				if Entity(self.OrigSignal).Routes[1] and Entity(self.OrigSignal).Routes[1].Manual then
+					if Entity(self.OrigSignal).Routes[1].IsOpened then
+						Entity(self.OrigSignal):CloseRoute(1)
+						caller:PrintMessage( HUD_PRINTCENTER, "Close" )
+					else 
+						Entity(self.OrigSignal):OpenRoute(1)
+						caller:PrintMessage( HUD_PRINTCENTER, "Open" )
+					end
+				elseif Entity(self.OrigSignal).Red and string.match( Entity(self.OrigSignal).LensesStr, "W", 0 ) and !Entity(self.OrigSignal).Close then
+					Entity(self.OrigSignal).InvasionSignal = !Entity(self.OrigSignal).InvasionSignal
+					caller:PrintMessage( HUD_PRINTCENTER, "Invasion: "..tostring(Entity(self.OrigSignal).InvasionSignal))
+				elseif !Entity(self.OrigSignal).Routes[1].Manual then
+					Entity(self.OrigSignal).Close = !Entity(self.OrigSignal).Close
+					caller:PrintMessage( HUD_PRINTCENTER, "Close: "..tostring(Entity(self.OrigSignal).Close))
 				end
-			elseif Entity(self.OrigSignal).RedSignal and string.match( Entity(self.OrigSignal).LensesStr, "W", 0 ) and !Entity(self.OrigSignal).Close then
-				Entity(self.OrigSignal).InvasionSignal = !Entity(self.OrigSignal).InvasionSignal
-			elseif !Entity(self.OrigSignal).Routes[1].Manual then
-				Entity(self.OrigSignal).Close = !Entity(self.OrigSignal).Close
 			end
 		end
 	end
+	self.LastUse = CurTime()
 end
 
 function ENT:SetSprite(index,active,model,scale,brightness,pos,color)
