@@ -1,7 +1,7 @@
 "VertexLitGeneric"
 {
 	"$color"				"[1 1 1]"
-	"$baseTexture"			"models/minimap/gm_mus_orange_line_long_h"
+	"$baseTexture"			"models/minimap/gm_mus_orange_metro_h"
 	"$selfIllum"			0
 	"$translucent"			0
 	"$alphatest"			1
