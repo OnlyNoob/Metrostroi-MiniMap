@@ -5,7 +5,7 @@ if SERVER then
 	--MiniMap minitrains offset--
 	MiniMap.MiniTrainsOffset = 1
 	MiniMap.Model = nil
-	MiniMap.Updated = false -- New signals, updated trains?
+	MiniMap.Updated = true -- New signals, updated trains?
 	MiniMap.StationNames = {}
 	MiniMap.SemiAutoSignals = {}
 	MiniMap.BlockSwitches = true

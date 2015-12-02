@@ -27,14 +27,18 @@ function ENT:Use( activator, caller, useType, value )
 			if Entity(self.OrigSwitch).AlternateTrack then
 				if MiniMap.BlockSwitches then
 					Entity(self.OrigSwitch).LockedSignal = "main"
+					caller:PrintMessage( HUD_PRINTCENTER, "Main (Blocked)" )
 				else
 					Entity(self.OrigSwitch):SendSignal("main",Entity(self.OrigSwitch):GetChannel())
+					caller:PrintMessage( HUD_PRINTCENTER, "Main" )
 				end
 			else
 				if MiniMap.BlockSwitches then
 					Entity(self.OrigSwitch).LockedSignal = "alt"
+					caller:PrintMessage( HUD_PRINTCENTER, "Alt (Blocked)" )
 				else
 					Entity(self.OrigSwitch):SendSignal("alt",Entity(self.OrigSwitch):GetChannel())
+					caller:PrintMessage( HUD_PRINTCENTER, "Alt" )
 				end
 			end
 		end
@@ -43,10 +47,18 @@ end
 
 function ENT:Think()
 	if Entity(self.OrigSwitch):IsValid() then
-		if Entity(self.OrigSwitch).AlternateTrack then
-			self:SetNWString( "TrackInfo", "Alt" )
+		if MiniMap.BlockSwitches then
+			if Entity(self.OrigSwitch).AlternateTrack then
+				self:SetNWString( "TrackInfo", "Alt(Blocked)" )
+			else
+				self:SetNWString( "TrackInfo", "Main(Blocked)" )
+			end
 		else
-			self:SetNWString( "TrackInfo", "Main" )
+			if Entity(self.OrigSwitch).AlternateTrack then
+				self:SetNWString( "TrackInfo", "Alt" )
+			else
+				self:SetNWString( "TrackInfo", "Main" )
+			end
 		end
 	else
 		self:Remove()

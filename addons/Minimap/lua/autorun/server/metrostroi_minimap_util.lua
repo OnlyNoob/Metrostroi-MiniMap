@@ -104,8 +104,12 @@ function MiniMap.ChangeSignalsMode(semiauto)
 			for k,v in pairs(MiniMap.SemiAutoSignals) do
 				local signal = Metrostroi.GetSignalByName(v)
 				if signal then
-					signal.Routes[1].Manual = true
-					signal:CloseRoute(1)
+					--signal.Routes[1].Manual = true
+					--signal:CloseRoute(1)
+					for k,v in pairs(signal.Routes) do
+						signal.Routes[k].Manual = true
+						signal:CloseRoute(k)
+					end
 				end
 			end
 		end
@@ -114,7 +118,11 @@ function MiniMap.ChangeSignalsMode(semiauto)
 			for k,v in pairs(MiniMap.SemiAutoSignals) do
 				local signal = Metrostroi.GetSignalByName(v)
 				if signal then
-					signal.Routes[1].Manual = false
+					--signal.Routes[1].Manual = false
+					for k,v in pairs(signal.Routes) do
+						signal.Routes[k].Manual = false
+						signal:OpenRoute(k)
+					end
 				end
 			end
 		end

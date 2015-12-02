@@ -6,19 +6,21 @@ if SERVER then
 	MiniMap.MiniTrainsOffset = 0
 	MiniMap.Model = nil
 	MiniMap.Updated = true -- New signals, updated trains?
---[[MiniMap.StationNames = {
-	[110] = "Garry's Mod Workers",
-	[111] = "VHE",
-	[112] = "Wallace Breen",
-	[113] = "GCFScape",
-	[114] = "Workshop",
-	[115] = "Park",
-	[116] = "Lithium",
-	[117] = "Glorious Country",
-	[200] = "Lithium",
-	[201] = "SENT Factory Station",
-	[202] = "Airport"}
-	MiniMap.SemiAutoSignals = {"D3","D4","D5","D6","D2 1","D2 3","D2 5","D2 7","D2 2","D2 4","D2 6","D2 8"}--]]
+	MiniMap.StationNames = {
+	[408] = "Garry's Mod Workers",
+	[407] = "VHE",
+	[406] = "Wallace Breen",
+	[405] = "GCFScape",
+	[404] = "Park",
+	[403] = "Lithium",
+	[402] = "Glorious Country",
+	[401] = "Airport",
+	[504] = "Metro Builders",
+	[503] = "Lithium",
+	[502] = "Pionerskaya",
+	[501] = "Airport",
+	[601] = "Brateevo"}
+	MiniMap.SemiAutoSignals = {"E2","D2","D4","D6","D21","D","D1","D3","D5","P1","AE1","AE11","AE9","AE7","AE2","AE12","AE10","AE8"}
 	MiniMap.BlockSwitches = true
 else
 	--Client side config--

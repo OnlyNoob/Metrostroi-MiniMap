@@ -12,6 +12,7 @@ end
 function ENT:Think()
 	self.LightType = self:GetNWInt("LightType") - 2
 	self.Lenses = self:GetNWString("Lenses")
+	self.Left = self:GetNWBool("Left")
 
 	local models = self.TrafficLightModels[self.LightType] or {}
 	local ID = 0
@@ -57,9 +58,9 @@ function ENT:Think()
 					if not data then continue end
 					offset = offset - Vector(0,0,data[1])
 
-					self.Models[ID] = ClientsideModel(data[2],RENDERGROUP_OPAQUE)
+					self.Models[ID] = ClientsideModel(self.Left and data[2]:Replace(".mdl","_mirror.mdl") or data[2],RENDERGROUP_OPAQUE)
 					self.Models[ID]:SetPos(self:LocalToWorld(self.BasePosition + offset))
-					self.Models[ID]:SetAngles(self:GetAngles())
+					self.Models[ID]:SetAngles(self.Left and self:GetAngles() + Angle(0,180,0) or self:GetAngles())
 					self.Models[ID]:SetModelScale(0.02, 0)
 					self.Models[ID]:SetParent(self)
 				end

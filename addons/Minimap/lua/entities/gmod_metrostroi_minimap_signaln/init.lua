@@ -97,10 +97,13 @@ function ENT:Think()
 	end
 	self:SetNWInt("LightType", (Entity(self.OrigSignal).SignalType or 0) + 2)
 	self:SetNWString("Lenses", Entity(self.OrigSignal).LensesStr or "RRR-RRR")
+	self:SetNWBool("Left", Entity(self.OrigSignal).Left or false)
+	
 	-- Create sprites and manage lamps
 	local index = 1
 	local offset = self.RenderOffset[Entity(self.OrigSignal).SignalType] or Vector(0,0,0)
 	for k,v in ipairs(Entity(self.OrigSignal).Lenses) do
+		if not Entity(self.OrigSignal).Routes[Entity(self.OrigSignal).Route or 1].Lights then continue end
 		local Lights = string.Explode("-",Entity(self.OrigSignal).Routes[Entity(self.OrigSignal).Route or 1].Lights)
 
 		if v ~= "M" then
@@ -125,12 +128,12 @@ function ENT:Think()
 					-- The LED glow
 					self:SetSprite(index.."a",AverageState,
 						"models/metrostroi_signals/signal_sprite_001.vmt",0.008,1.0,
-						self.BasePosition + offset + data[3][i-1], Metrostroi.Lenses[v[i]])
+						Entity(self.OrigSignal).Left and self.BasePosition + offset + data[3][i-1] + Vector(0,-0.20,0) or self.BasePosition + offset + data[3][i-1], Metrostroi.Lenses[v[i]])
 
 					-- Overall glow
 					self:SetSprite(index.."b",AverageState,
 						"models/metrostroi_signals/signal_sprite_002.vmt",0.0050,0.6,
-						self.BasePosition + offset + data[3][i-1], Metrostroi.Lenses[v[i]])
+						Entity(self.OrigSignal).Left and self.BasePosition + offset + data[3][i-1] + Vector(0,-0.20,0) or self.BasePosition + offset + data[3][i-1], Metrostroi.Lenses[v[i]])
 					self.EnableDelay[index] = nil
 				end
 				index = index + 1
