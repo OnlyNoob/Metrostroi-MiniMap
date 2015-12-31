@@ -101,8 +101,11 @@ function ENT:Initialize()
 end
 
 function ENT:StartTouch(ent)
+	if MiniMap.ActiveDispatcher and ent != MiniMap.ActiveDispatcher and ent:IsPlayer() then
+		ent:Kill()
+	end
 	if (ent:IsValid()) and (ent.IsPlayer()) then
-		MiniMap.NearPlayers[ent:UserID()] = true
+		MiniMap.NearPlayers[ent:UserID()] = self:EntIndex()
 	end
 end
 
@@ -111,6 +114,7 @@ function ENT:EndTouch(ent)
 		MiniMap.NearPlayers[ent:UserID()] = false
 		if (MiniMap.ActiveDispatcher) and (ent:UserID() == MiniMap.ActiveDispatcher:UserID()) then
 			MiniMap.ActiveDispatcher = nil
+			MiniMap.ActiveEntity = nil
 			MiniMap.SendActiveDispatcher("Нету")
 			MiniMap.ResetSignalsOverride()
 			if (MiniMap.Updated) then

@@ -1,7 +1,7 @@
 "AddonInfo"
 {
 	"name"        "MetrostroiMiniMap"
-	"version"     "8"
+	"version"     "9"
 	"author_name" "OnlyNoob"
 	"author_url"  ""
 	"info"        "Metrostroi Mini Map and more."

@@ -12,6 +12,13 @@ end
 
 include(string.format("minimap/configs/maps/%s.lua",game.GetMap()))
 
+-----------------------------
+--Load modules --------------
+-----------------------------
+MsgC(Color(20, 255, 20), "[MiniMap]: Loading... Starting client modules.\n")
+
+--include("minimap/modules/minimap_orangedisp/cl_init.lua") --For client side render
+
 -------------------
 --Receive data-----
 -------------------

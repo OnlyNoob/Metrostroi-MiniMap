@@ -4,6 +4,7 @@ AddCSLuaFile(string.format("minimap/configs/maps/%s.lua",game.GetMap()))
 
 if !MiniMap then MiniMap = {} end
 MiniMap.ActiveDispatcher = nil
+MiniMap.ActiveEntity = nil
 MiniMap.NearPlayers = {}
 MiniMap.Cache = {}
 
@@ -14,6 +15,15 @@ MiniMap.Cache = {}
 include(string.format("minimap/configs/maps/%s.lua",game.GetMap()))
 resource.AddFile(string.format("models/minimap/%s.mdl",MiniMap.Model or (game.GetMap())))
 resource.AddFile(string.format("materials/models/minimap/%s.vmt",MiniMap.Model or (game.GetMap())))
+
+-----------------------------
+--Load modules --------------
+-----------------------------
+MsgC(Color(20, 255, 20), "[MiniMap]: Loading... Starting modules.\n")
+
+include("minimap/modules/minimap_client/init.lua")
+include("minimap/modules/minimap_orangedisp/init.lua")
+
 -----------------------------
 --Load,Save,Reload-----------
 -----------------------------
@@ -78,6 +88,7 @@ function MiniMap.BecomeDispatcher(ply)
 	if(!MiniMap.ActiveDispatcher) then
 		if(MiniMap.NearPlayers[ply:UserID()]) then
 			MiniMap.ActiveDispatcher = ply
+			MiniMap.ActiveEntity = MiniMap.NearPlayers[ply:UserID()]
 			MiniMap.SendActiveDispatcher(ply:GetName())
 			if (MiniMap.Updated) then
 				MiniMap.ChangeSignalsMode(true)
@@ -89,6 +100,7 @@ end
 function MiniMap.LeaveDispatcher(ply)
 	if (MiniMap.ActiveDispatcher) and (ply == MiniMap.ActiveDispatcher) then
 		MiniMap.ActiveDispatcher = nil
+		MiniMap.ActiveEntity = nil
 		MiniMap.SendActiveDispatcher("Нету")
 		MiniMap.ResetSignalsOverride()
 		if (MiniMap.Updated) then
@@ -99,8 +111,8 @@ function MiniMap.LeaveDispatcher(ply)
 end
 
 function MiniMap.ChangeSignalsMode(semiauto)
-	if semiauto then
-		if MiniMap.SemiAutoSignals then
+	if MiniMap.SemiAutoSignals then
+		if semiauto then
 			for k,v in pairs(MiniMap.SemiAutoSignals) do
 				local signal = Metrostroi.GetSignalByName(v)
 				if signal then
@@ -112,9 +124,7 @@ function MiniMap.ChangeSignalsMode(semiauto)
 					end
 				end
 			end
-		end
-	else
-		if MiniMap.SemiAutoSignals then
+		else
 			for k,v in pairs(MiniMap.SemiAutoSignals) do
 				local signal = Metrostroi.GetSignalByName(v)
 				if signal then
@@ -244,7 +254,7 @@ end
 
 hook.Add( "InitPostEntity", "MiniMap Autoload", function()
 	MiniMap.LoadMinimapEnts()
-end )
+end)
 
 hook.Add( "PlayerInitialSpawn", "MiniMap DataSent", function(ply)
 	timer.Simple(15,function()
@@ -255,7 +265,7 @@ hook.Add( "PlayerInitialSpawn", "MiniMap DataSent", function(ply)
 			end
 		end
 	end)
-end )
+end)
 
 hook.Add( "Initialize", "MiniMap SetupPermissions", function()
 	if not (MiniMap and MiniMap.SetupPermission) then return end
@@ -276,4 +286,10 @@ hook.Add( "OnEntityCreated", "MiniMap SpawnMiniTrains", function( ent )
 			minitrain:Activate()
 		end
 	end
-end )
+end)
+
+hook.Add( "EntityRemoved", "MiniMap SetupPermissions", function( ent )
+	if MiniMap.ActiveEntity == ent:EntIndex() then
+		MiniMap.LeaveDispatcher(MiniMap.ActiveDispatcher)
+	end
+end)
