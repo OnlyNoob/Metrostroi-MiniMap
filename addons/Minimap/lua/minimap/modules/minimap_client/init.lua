@@ -1,5 +1,8 @@
---Need Bromsock to work!
+--Need minimap module to work!
 if !MiniMap.Client then MiniMap.Client = {} end
+if !MiniMapServer then MiniMapServer = {} end
+
+--local _R = debug.getregistry()
 
 function MiniMap.Client.Init()
 	--Load config
@@ -7,66 +10,86 @@ function MiniMap.Client.Init()
 	
 	if MiniMap.Client.Enabled then
 		MsgC(Color(20, 255, 20), "[MiniMap.Client]: Module enabled. Starting server.\n")
-		require("bromsock")
-		MiniMap.Client.StartServer()
+		require("minimap")
+		MiniMapServer.SetMode(MiniMap.Client.Mode)
+		MiniMapServer.Start(MiniMap.Client.Port or 5890)
+		MiniMapServer.SetMetrostroiHooks()
 	else
 		MsgC(Color(255, 20, 20), "[MiniMap.Client]: Module disabled.\n")
 		return
 	end
 end
 
-function MiniMap.Client.StartServer()
-	if MiniMap.Client.Server then MiniMap.Client.Server:Close() end
-	MiniMap.Client.Server = BromSock(BROMSOCK_TCP)
-	MiniMap.Client.Port = MiniMap.Client.Port or 5890
+----------------------------------------------------------------------
+-- Purpose:
+--		Print Dispatcher message in chat.
+----------------------------------------------------------------------
 
-	MiniMap.Client.Server:SetCallbackAccept(CallbackAccept)
-	
-	if (not MiniMap.Client.Server:Listen(MiniMap.Client.Port)) then
-		MsgC(Color(255, 20, 20), "[MiniMap.Client]: Failed to listen on port "..MiniMap.Client.Port.."\n")
-	else
-		MsgC(Color(20, 255, 20), "[MiniMap.Client]: Server listening on port "..MiniMap.Client.Port.."\n")
+function MiniMapServer.DispMessage(msg)
+	for _, player in ipairs( player.GetAll() ) do
+		player:ChatPrint( "Диспетчер: " .. msg )
 	end
-	
-	--MiniMap.Client.Server:Receive()
-	MiniMap.Client.Server:Accept()
 end
 
-function CallbackAccept(sock, clientsock)
-	MsgC(Color(20, 255, 20), "[MiniMap.Client]: Accepted - "..tostring(sock).." | "..tostring(clientsock).."\n")
+----------------------------------------------------------------------
+-- Purpose:
+--		Install Signal hooks to send data in client.
+----------------------------------------------------------------------
 
-	clientsock:SetCallbackReceive(function(sock, packet)
-		print("[MiniMap.Client] Received:", sock, packet)
-		print("[MiniMap.Client] R_String:", packet:ReadStringAll())
-			
-		--packet:WriteStringRaw("Woop woop woop a string")
-		--sock:Send(packet)
-			
-		-- normaly you'd want to call Receive again to read the next packet. However, we know that the client ain't going to send more, so fuck it.
-		-- theres only one way to see if a client disconnected, and that's when a error occurs while sending/receiving.
-		-- this is why most applications have a disconnect packet in their code, so that the client informs the server that he exited cleanly. There's no other way.
-		-- We set a timeout, so let's be stupid and hope there's another packet incomming. It'll timeout and disconnect.
-		sock:Receive()
-	end)
-	
-	clientsock:SetCallbackDisconnect(function(sock)
-		MsgC(Color(255, 20, 20), "[MiniMap.Client]: Disconnected - "..tostring(sock).."\n")
-	end)
-	
-	clientsock:SetTimeout(1000) -- timeout send/recv commands in 1 second. This will generate a Disconnect event if you're using callbacks
-	
-	clientsock:Receive()
+function MiniMapServer.SetMetrostroiHooks()
+	if not Metrostroi.Load then 
+		timer.Simple(0.25, MiniMapServer.SetMetrostroiHooks) 
+		return 
+	end
+	Metrostroi.OldLoad = Metrostroi.OldLoad or Metrostroi.Load
+	Metrostroi.Load = function( ... )
+		--before
 		
-	-- Who's next in line?
-	sock:Accept()
+		--orig
+		Metrostroi.OldLoad( ... )
+		--after
+		timer.Simple(1.0, MiniMapServer.SetSignalHooks)
+	end
 end
 
-function CallbackReceive(sock, packet)
-
+function MiniMapServer.SetSignalHooks()
+	MsgC(Color(20, 255, 20), "[MiniMap.Client]: Hooking Metrostroi.\n")
+	local signals_ents = ents.FindByClass("gmod_track_signal")
+	for k,v in pairs(signals_ents) do 
+		if v.Occupied ~= nil then
+			v.oldARSLogic = v.oldARSLogic or v.ARSLogic
+			v.ARSLogic = function( ... ) 
+				--before
+				local oldState = v.Occupied
+				--orig
+				v.oldARSLogic( ... )
+				--after
+				local newState = v.Occupied
+				if (newState ~= oldState and v.NextSignalLink) then
+					local Signals = v.Name.."-"..(v.NextSignalLink.Name or "")
+					MiniMapServer.Cache[Signals] = newState
+					--Send to client ^)
+					MiniMapServer.SendMessage(2, Signals, newState)
+				end
+			end
+		end
+	end
 end
 
-function CallbackDisconnect(sock)
+----------------------------------------------------------------------
+-- Purpose:
+--		Send other chat messages to client.
+----------------------------------------------------------------------
 
-end
+hook.Add( "PlayerSay", "MiniMapServer.PlayerSay", function( ply, text, team )
+	--if ( string.sub( text, 1, 4 ) == "/all" ) then -- if the first four characters of the string are /all
+	--	return "[Global] " .. string.sub( text, 5 ) -- add [Global] in front of the players text then display
+	--end
+	MiniMapServer.SendMessage(1, ply:GetName(), text)
+end )
+
+hook.Add( "MetrostroiPlombBroken", "MiniMapServer.PlombBroken", function( train, button, driver)
+	MiniMapServer.SendMessage(1, "SERVER", driver.." broke seal on "..button.." !")
+end )
 
 MiniMap.Client.Init()
