@@ -82,9 +82,6 @@ end
 ----------------------------------------------------------------------
 
 hook.Add( "PlayerSay", "MiniMapServer.PlayerSay", function( ply, text, team )
-	--if ( string.sub( text, 1, 4 ) == "/all" ) then -- if the first four characters of the string are /all
-	--	return "[Global] " .. string.sub( text, 5 ) -- add [Global] in front of the players text then display
-	--end
 	MiniMapServer.SendMessage(1, ply:GetName(), text)
 end )
 
