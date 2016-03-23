@@ -1,3 +1,14 @@
+-----------------------------
+--Check config for map-------
+-----------------------------
+
+if(file.Exists( string.format("minimap/configs/maps/%s.lua",game.GetMap()), "LUA" )) then
+	MsgC(Color(20, 255, 20), "[MiniMap]: Config found.\n")
+else
+	MsgC(Color(255, 20, 20), "[MiniMap]: Config not found. MiniMap disabled.\n")
+	return
+end
+
 CreateClientConVar( "metrostroi_minimap_drawsigns", 1, true, false )
 CreateClientConVar( "metrostroi_minimap_displaysignalmodels", 1, true, false )
 
@@ -52,12 +63,15 @@ end
 hook.Add("HUDPaint", "Minimap Hud Paint", function()
 	local font = "ChatFont"
 	local text = "Диспетчер: " .. MiniMap.ActiveDispatcher
+	local text2 = "Клиент: ..."
 	surface.SetFont(font)
 	local Width, Height = surface.GetTextSize(text)
-	local boxHeight = Height + 16
-	local boxWidth = Width + 25
+	local w2,h2 = surface.GetTextSize(text2)
+	local boxHeight = Height + h2 + 16
+	local boxWidth = math.Max(Width,w2) + 25
 	draw.RoundedBox(4, ScrW() - (boxWidth + 4), (ScrH()/2 - 100) - 16, boxWidth, boxHeight, Color(0, 0, 0, 150))
 	draw.SimpleText(text, font, ScrW() - (Width / 2) - 20, ScrH()/2 - 100, Color(255, 255, 255, 255), 1, 1)
+	draw.SimpleText(text2, font, ScrW() - (w2 / 2) - 20, ScrH()/2 - 100 + Height, Color(255, 255, 255, 255), 1, 1)
 end)
 
 hook.Add("PopulateToolMenu", "Minimap Tool Menu", MiniMap.PopulateToolMenu)

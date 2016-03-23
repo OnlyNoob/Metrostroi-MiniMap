@@ -1,3 +1,14 @@
+-----------------------------
+--Check config for map-------
+-----------------------------
+
+if(file.Exists( string.format("minimap/configs/maps/%s.lua",game.GetMap()), "LUA" )) then
+	MsgC(Color(20, 255, 20), "[MiniMap]: Config found.\n")
+else
+	MsgC(Color(255, 20, 20), "[MiniMap]: Config not found. MiniMap disabled.\n")
+	return
+end
+
 AddCSLuaFile("autorun/client/cl_metrostroi_minimap_util.lua")
 AddCSLuaFile("autorun/client/3d2dimgui.lua")
 AddCSLuaFile(string.format("minimap/configs/maps/%s.lua",game.GetMap()))
