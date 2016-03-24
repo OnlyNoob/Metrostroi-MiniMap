@@ -54,6 +54,7 @@ function ENT:Draw()
 	end
 	if self.Panel:Button("Исправить отображение", "DermaDefaultBold", -70, 190, 160, 25) then
 		self:FixRender()
+		RunConsoleCommand("metrostroi_minimap_resendsigndata")
 	end
 
     -- Draws a simple crosshair cursor at current mouse position

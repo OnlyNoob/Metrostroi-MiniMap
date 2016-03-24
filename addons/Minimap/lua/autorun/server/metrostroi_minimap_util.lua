@@ -176,20 +176,25 @@ function MiniMap.ResetSwitchesOverride()
 end
 
 concommand.Add("metrostroi_minimap_becomedispatcher", function(ply, _, args)
-	if (ply:IsValid()) and (!MiniMap.HasPermission(ply, "MiniMap DispatcherAccess", true)) then return end
+	if (not ply:IsValid()) or (not MiniMap.HasPermission(ply, "MiniMap DispatcherAccess", true)) then return end
 	MiniMap.BecomeDispatcher(ply)
 end)
 
 concommand.Add("metrostroi_minimap_leavedispatcher", function(ply, _, args)
-	if (ply:IsValid()) and (!MiniMap.HasPermission(ply, "MiniMap DispatcherAccess", true)) then return end
+	if (not ply:IsValid()) or (not MiniMap.HasPermission(ply, "MiniMap DispatcherAccess", true)) then return end
 	MiniMap.LeaveDispatcher(ply)
 end)
 
 concommand.Add("metrostroi_minimap_resetsignals", function(ply, _, args)
-	if (ply:IsValid()) and (!MiniMap.HasPermission(ply, "MiniMap DispatcherAccess", true)) then return end
+	if (not ply:IsValid()) or (not MiniMap.HasPermission(ply, "MiniMap DispatcherAccess", true)) then return end
 	if (MiniMap.ActiveDispatcher) and (ply:UserID() == MiniMap.ActiveDispatcher:UserID()) then
 		MiniMap.ResetSignalsOverride()
 	end
+end)
+
+concommand.Add("metrostroi_minimap_resendsigndata", function(ply, _, args)
+	if (not ply:IsValid()) then return end
+	MiniMap.SendSignData(ply)
 end)
 
 ----------------------------
@@ -207,7 +212,12 @@ function MiniMap.SendSignData(ply)
 		local signents = ents.FindByClass("gmod_track_sign")
 		local tbl = {}
 		for k, v in pairs(signents) do
-			local stname = v:GetNWString("Name","Error")
+			local stname = ""
+			if (MiniMap.Updated) then
+				stname = v:GetNW2String("Name","Error")
+			else
+				stname = v:GetNWString("Name","Error")
+			end
 			if (stname == "Error" or stname == "") and MiniMap.StationNames then
 				if MiniMap.StationNames[v:GetNWInt("ID")] then
 					stname = MiniMap.StationNames[v:GetNWInt("ID")]
