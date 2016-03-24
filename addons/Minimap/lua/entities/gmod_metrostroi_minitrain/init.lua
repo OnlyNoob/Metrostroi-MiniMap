@@ -9,7 +9,7 @@ function ENT:Initialize()
 	if Entity(self.TrainEnt):IsValid() then
 		self:SetModel(Entity(self.TrainEnt):GetModel()) 
 		self:SetPlayer(Entity(self.TrainEnt).Owner)
-		self.head = (Entity(self.TrainEnt).SubwayTrain.Name == "81-717" or Entity(self.TrainEnt).SubwayTrain.Name == "Ezh3") or false
+		self.head = (Entity(self.TrainEnt).SubwayTrain.Name == "81-717" or Entity(self.TrainEnt).SubwayTrain.Name == "Ezh3" or Entity(self.TrainEnt).SubwayTrain.Name == "81-717.5m" or Entity(self.TrainEnt).SubwayTrain.Name == "E" or Entity(self.TrainEnt).SubwayTrain.Name == "Ema") or false
 	end
 	if NADMOD then
 		NADMOD.SetOwnerWorld(self)

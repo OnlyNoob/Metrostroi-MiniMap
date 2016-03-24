@@ -7,6 +7,10 @@ function ENT:SetupDataTables()
 end
 
 function ENT:Initialize()
+	if (not MiniMap.Enabled) then
+		self:Remove()
+		return
+	end
 	self.minitrainsoffset = MiniMap.MiniTrainsOffset or 0
 
 	self:SetModel("models/scenery/structural/gio_rail/endpiece.mdl")

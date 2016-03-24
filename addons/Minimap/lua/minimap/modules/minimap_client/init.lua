@@ -82,11 +82,15 @@ end
 ----------------------------------------------------------------------
 
 hook.Add( "PlayerSay", "MiniMapServer.PlayerSay", function( ply, text, team )
-	MiniMapServer.SendMessage(1, ply:GetName(), text)
+	if MiniMap.Client.Enabled then
+		MiniMapServer.SendMessage(1, ply:GetName(), text)
+	end
 end )
 
 hook.Add( "MetrostroiPlombBroken", "MiniMapServer.PlombBroken", function( train, button, driver)
-	MiniMapServer.SendMessage(1, "SERVER", driver.." broke seal on "..button.." !")
+	if MiniMap.Client.Enabled then
+		MiniMapServer.SendMessage(1, "SERVER", driver.." broke seal on "..button.." !")
+	end
 end )
 
 MiniMap.Client.Init()
