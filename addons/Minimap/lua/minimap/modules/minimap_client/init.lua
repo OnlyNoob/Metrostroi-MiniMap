@@ -1,6 +1,7 @@
 --Need minimap module to work!
 if !MiniMap.Client then MiniMap.Client = {} end
 if !MiniMapServer then MiniMapServer = {} end
+MiniMapServer.Cache = {}
 
 --local _R = debug.getregistry()
 
