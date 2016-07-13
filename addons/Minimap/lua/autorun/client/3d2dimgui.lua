@@ -26,7 +26,7 @@
 local bor, band, lshift = bit.bor, bit.band, bit.lshift
 
 local old_tdui = tdui -- autorefresh support
-tdui = {}
+local tdui = {}
 
 -- Input constants.
 -- We're not using GMod- versions, because they're not powers of two.
@@ -79,7 +79,14 @@ end
 
 -- The main function. See below for functions in tdui.Meta
 function tdui.Create()
-	local ui = setmetatable({}, tdui.Meta)
+	local ui = setmetatable({
+		renderQueue = {},
+		renderQueuePointer = 0,
+
+		_renderBounds = {x = 0, y = 0, x2 = 0, y2 = 0},
+
+		specialFontCache = {} -- cache of fonts that specify font size etc
+	}, tdui.Meta)
 	hook.Call("TDUICreated", nil, ui)
 	return ui
 end
@@ -157,21 +164,30 @@ function tdui_meta:DisableStencil()
 	self:_QueueRenderOP("stencil_off")
 end
 
-function tdui_meta:DrawRect(x, y, w, h, clr, out_clr)
-	local color, borderColor = self:_GetSkinParams("rect", "color", "borderColor")
+local colorMat = Material("color")
+function tdui_meta:DrawRect(x, y, w, h, color, borderColor, borderWidth)
+	local skin_color, skin_borderColor, skin_borderWidth = self:_GetSkinParams("rect", "color", "borderColor", "borderWidth")
 
-	clr = clr or color
-	out_clr = out_clr or borderColor
+	color = color or skin_color
+	borderColor = borderColor or skin_borderColor
+	
+	borderWidth = borderWidth or skin_borderWidth or 1
 
 	local uiscale = self:GetUIScale()
 	x, y, w, h = x * uiscale, y * uiscale, w * uiscale, h * uiscale
 
-	surface.SetDrawColor(clr)
+	surface.SetDrawColor(color)
 	surface.DrawRect(x, y, w, h)
 
-	if out_clr then
-		surface.SetDrawColor(out_clr)
-		surface.DrawOutlinedRect(x, y, w, h)
+	if borderColor then
+		surface.SetDrawColor(borderColor)
+		surface.SetMaterial(colorMat)
+		local line_width = borderWidth * math.ceil(1 / (self._scale * 40))
+
+		surface.DrawTexturedRect(x, y, w, line_width)
+		surface.DrawTexturedRect(x, y, line_width, h)
+		surface.DrawTexturedRect(x, y+h-line_width, w, line_width)
+		surface.DrawTexturedRect(x+w-line_width, y, line_width, h)
 	end
 
 	self:_ExpandRenderBounds(x, y, w, h)
@@ -236,27 +252,41 @@ function tdui_meta:Mat(mat, x, y, w, h, clr)
 	self:_QueueRenderOP("mat", mat, x, y, w, h, clr)
 end
 
+-- The cache that has String->Bool mappings telling if font has been created
+local _createdFonts = {}
+
+local EXCLAMATION_BYTE = string.byte("!")
 function tdui_meta:_ParseFont(font)
 	-- special font
-	if font:sub(1, 1) == "!" then
+	if font:byte(1) == EXCLAMATION_BYTE then
+		-- Check if font has been cached
+		-- This cache is cleared on UIScale change
+		local cachedFont = self.specialFontCache[font]
+		if cachedFont then
+			return cachedFont
+		end
+
+		-- Font not cached; parse the font and scale it according to UIScale
 		local name, size = font:match("!([^@]+)@(.+)")
 		local parsedSize = tonumber(size)
 
 		local uiscale = self:GetUIScale()
 		parsedSize = math.Round(parsedSize * uiscale)
 
-		local cachedName = string.format("TDUICached_%s_%d", name, parsedSize)
+		local fontName = string.format("TDUICached_%s_%d", name, parsedSize)
 
-		self._cachedFonts = self._cachedFonts or {}
-		if self._cachedFonts[cachedName] then return cachedName end
+		-- Cache for later usage with same font string
+		self.specialFontCache[font] = fontName
 
-		surface.CreateFont(cachedName, {
-			font = name,
-			size = parsedSize
-		})
+		if not _createdFonts[fontName] then
+			surface.CreateFont(fontName, {
+				font = name,
+				size = parsedSize
+			})
+			_createdFonts[fontName] = true
+		end
 
-		self._cachedFonts[cachedName] = true
-		return cachedName
+		return fontName
 	end
 	return font
 end
@@ -305,8 +335,8 @@ function tdui_meta:Text(str, font, x, y, clr, halign, valign, scissor_rect)
 end
 
 function tdui_meta:DrawButton(input, font, x, y, w, h, clr, hover_clr)
-	local fgColor, bgColor, fgHoverColor, fgPressColor, bgHoverColor, bgPressColor =
-		self:_GetSkinParams("button", "fgColor", "bgColor", "fgHoverColor", "fgPressColor", "bgHoverColor", "bgPressColor")
+	local fgColor, bgColor, fgHoverColor, fgPressColor, bgHoverColor, bgPressColor, borderWidth =
+		self:_GetSkinParams("button", "fgColor", "bgColor", "fgHoverColor", "fgPressColor", "bgHoverColor", "bgPressColor", "borderWidth")
 
 	-- Override skin constants with params if needed
 	fgColor = clr or fgColor
@@ -314,12 +344,7 @@ function tdui_meta:DrawButton(input, font, x, y, w, h, clr, hover_clr)
 
 	surface.SetFont(self:_ParseFont(font))
 
-	local uiscale = self:GetUIScale()
-	local inputstate = self:_CheckInputInRect(x * uiscale, y * uiscale, w * uiscale, h * uiscale)
-
-	local just_pressed = band(inputstate, tdui.FSTATE_JUSTPRESSED) ~= 0
-	local pressing = band(inputstate, tdui.FSTATE_PRESSING) ~= 0
-	local hovering = band(inputstate, tdui.FSTATE_HOVERING) ~= 0
+	local just_pressed, pressing, hovering = self:TestAreaInput(x, y, w, h, true)
 
 	local finalFgColor, finalBgColor = fgColor, bgColor
 
@@ -329,7 +354,7 @@ function tdui_meta:DrawButton(input, font, x, y, w, h, clr, hover_clr)
 		finalFgColor, finalBgColor = fgHoverColor, bgHoverColor
 	end
 
-	self:DrawRect(x, y, w, h, finalBgColor, finalFgColor)
+	self:DrawRect(x, y, w, h, finalBgColor, finalFgColor, borderWidth)
 
 	-- if it's a table we need ITERATION
 	if type(input) == "table" then
@@ -378,27 +403,17 @@ end
 tdui.RenderOperations["button"] = tdui_meta.DrawButton
 function tdui_meta:Button(str, font, x, y, w, h, clr, hover_clr)
 	self:_QueueRenderOP("button", str, font, x, y, w, h, clr, hover_clr)
+	return self:TestAreaInput(x, y, w, h)
+end
 
-	local just_pressed, pressing, hovering
-
-	if self:ShouldAcceptInput() then
-		local uiscale = self:GetUIScale()
-		local inputstate = self:_CheckInputInRect(x * uiscale, y * uiscale, w * uiscale, h * uiscale)
-
-		just_pressed = band(inputstate, tdui.FSTATE_JUSTPRESSED) ~= 0
-		pressing = band(inputstate, tdui.FSTATE_PRESSING) ~= 0
-		hovering = band(inputstate, tdui.FSTATE_HOVERING) ~= 0
-	else
-		just_pressed, pressing, hovering = false, false, false
-	end
-
-	return just_pressed, pressing, hovering
+-- Returns input state bitmap of input within currently active renderbounds
+function tdui_meta:GetInputStateWithinRenderBounds()
+	local rb = self._renderBounds
+	return self:_CheckInputInRect(rb.x, rb.y, rb.x2-rb.x, rb.y2-rb.y)
 end
 
 function tdui_meta:DrawCursor()
-	local rb = self._renderBounds
-
-	local inputstate = self:_CheckInputInRect(rb.x, rb.y, rb.x2-rb.x, rb.y2-rb.y)
+	local inputstate = self:GetInputStateWithinRenderBounds()
 
 	-- If cursor is not within render bounds at all (is not hovering it)
 	-- we should not draw a cursor
@@ -429,6 +444,23 @@ function tdui_meta:Custom(fn)
 	self:_QueueRender(fn)
 end
 
+function tdui_meta:TestAreaInput(x, y, w, h, dontCheckAcceptance)
+	local just_pressed, pressing, hovering
+
+	if self:ShouldAcceptInput() or dontCheckAcceptance then
+		local uiscale = self:GetUIScale()
+		local inputstate = self:_CheckInputInRect(x * uiscale, y * uiscale, w * uiscale, h * uiscale)
+
+		just_pressed = band(inputstate, tdui.FSTATE_JUSTPRESSED) ~= 0
+		pressing = band(inputstate, tdui.FSTATE_PRESSING) ~= 0
+		hovering = band(inputstate, tdui.FSTATE_HOVERING) ~= 0
+	else
+		just_pressed, pressing, hovering = false, false, false
+	end
+
+	return just_pressed, pressing, hovering
+end
+
 function tdui_meta:_QueueRender(fn)
 	if self._rendering then
 		local r, e = pcall(fn, self)
@@ -436,8 +468,8 @@ function tdui_meta:_QueueRender(fn)
 		return
 	end
 
-	self.renderQueue = self.renderQueue or {}
-	self.renderQueue[#self.renderQueue + 1] = fn
+	self.renderQueuePointer = self.renderQueuePointer + 1
+	self.renderQueue[self.renderQueuePointer] = fn
 end
 
 -- Queues a render operation to be done during next render pass
@@ -449,13 +481,13 @@ function tdui_meta:_QueueRenderOP(op, ...)
 	end
 
 	if self._rendering then
-		local r, e = pcall(fn, self)
+		local r, e = pcall(fn, self, ...)
 		if not r then print("TDUI rendering error: ", e) end
 		return
 	end
 
-	self.renderQueue = self.renderQueue or {}
-	self.renderQueue[#self.renderQueue + 1] = {fn, ...}
+	self.renderQueuePointer = self.renderQueuePointer + 1
+	self.renderQueue[self.renderQueuePointer] = {fn, ...}
 end
 
 --- Should be called every time something is drawn with an approximate bounding
@@ -518,10 +550,18 @@ local traceEntFilter = function(ent)
 		return true
 	end
 end
+local traceResultTable = {}
+local traceQueryTable = { filter = traceEntFilter, output = traceResultTable }
 function tdui_meta:_ComputeScreenMouse()
-	local tr = LocalPlayer():GetEyeTrace()
-	local eyepos = tr.StartPos
-	local eyenormal = tr.Normal
+	local eyepos, eyenormal
+	if IsValid(LocalPlayer():GetVehicle()) then
+		eyepos = LocalPlayer():EyePos()
+		eyenormal = gui.ScreenToVector(ScrW() / 2, ScrH() / 2)
+	else
+		local tr = LocalPlayer():GetEyeTrace()
+		eyepos = tr.StartPos
+		eyenormal = tr.Normal
+	end
 
 	-- Calculate mouse position in local space
 	local mx, my, hitPos = self:_WorldToLocal(eyepos, eyenormal)
@@ -551,13 +591,11 @@ function tdui_meta:_ComputeScreenMouse()
 			return
 		end
 
-		local tr = util.TraceLine({
-			start = eyepos,
-			endpos = hitPos,
-
-			filter = traceEntFilter
-		})
-
+		local q = traceQueryTable
+		q.start = eyepos
+		q.endpos = hitPos
+		
+		local tr = util.TraceLine(q)
 		self._mObscured = tr.Hit
 	end
 end
@@ -568,26 +606,44 @@ function tdui_meta:_ComputeInput()
 	local nowInput = 0
 	local justPressed = 0
 
-	local function CheckInput(code, isDown)
-		if not isDown then return end
+	local isInContextMenu = vgui.CursorVisible() and vgui.GetHoveredPanel() ~= g_ContextMenu
+
+	-- Check mouse input (only listened to if context menu is not active)
+	if not isInContextMenu then
+		if input.IsMouseDown(MOUSE_LEFT) then
+			local code = tdui.FMOUSE_LEFT
+
+			nowInput = bor(nowInput, code)
+			if oldInput and band(oldInput, code) == 0 then
+				justPressed = bor(justPressed, code)
+			end
+		end
+		if input.IsMouseDown(MOUSE_RIGHT) then
+			local code = tdui.FMOUSE_RIGHT
+
+			nowInput = bor(nowInput, code)
+			if oldInput and band(oldInput, code) == 0 then
+				justPressed = bor(justPressed, code)
+			end
+		end
+	end
+
+	local useKey = KEY_E
+
+	-- attempt to map to key player has bound for +use, but fall back to KEY_E
+	local useBoundKey = input.LookupBinding("+use")
+	if useBoundKey ~= "e" then
+		useKey = _G["KEY_" .. useBoundKey:upper()] or KEY_E
+	end
+
+	if input.IsKeyDown(useKey) then
+		local code = tdui.FKEY_USE
 
 		nowInput = bor(nowInput, code)
-
 		if oldInput and band(oldInput, code) == 0 then
 			justPressed = bor(justPressed, code)
 		end
 	end
-	local function CheckMouse(gm_code, code)
-		CheckInput(code, input.IsMouseDown(gm_code) and (not vgui.CursorVisible() or vgui.GetHoveredPanel() == g_ContextMenu))
-	end
-	local function CheckInKey(gm_code, code)
-		CheckInput(code, LocalPlayer():KeyDown(gm_code))
-	end
-
-	CheckMouse(MOUSE_LEFT, tdui.FMOUSE_LEFT)
-	CheckMouse(MOUSE_RIGHT, tdui.FMOUSE_RIGHT)
-
-	CheckInKey(IN_USE, tdui.FKEY_USE)
 
 	self._inputDown = nowInput
 	self._justPressed = justPressed
@@ -646,11 +702,9 @@ end
 
 function tdui_meta:PreRenderReset()
 	-- Reset parameters
-	self.renderQueue = self.renderQueue or {}
 	self:_UpdateInputStatus()
 
 	-- Reset render bounds
-	self._renderBounds = self._renderBounds or {}
 	self._renderBounds.x = 0
 	self._renderBounds.y = 0
 	self._renderBounds.x2 = 0
@@ -685,8 +739,8 @@ function tdui_meta:BeginRender()
 end
 
 function tdui_meta:PostRenderReset()
-	-- Reset parameters
-	table.Empty(self.renderQueue)
+	-- "Empty" renderQueue
+	self.renderQueuePointer = 0
 
 	-- Count how many renders have been done this frame
 	local curFrame = FrameNumber()
@@ -720,7 +774,7 @@ function tdui_meta:EndRender()
 end
 
 function tdui_meta:RenderQueued()
-	for i = 1, #self.renderQueue do
+	for i = 1, self.renderQueuePointer do
 		local fn = self.renderQueue[i]
 
 		local r, e
@@ -790,9 +844,34 @@ end
 -- Can be used for testing or because of laziness
 function tdui_meta:SetUIScale(scale)
 	self._uiscale = scale
+	self.specialFontCache = {} -- special font cache must be recreated
 end
 function tdui_meta:GetUIScale()
 	return self._uiscale or 1
+end
+
+local useBindChecks = setmetatable({}, {__mode = "k"})
+
+hook.Add("PlayerBindPress", "TDUI_BlockUseBindChecker" .. debug.getinfo(1, "S").short_src, function(ply, bind, pressed)
+	if bind == "+use" then
+		for ui,b in pairs(useBindChecks) do
+			if b then
+				local inputstate = ui:GetInputStateWithinRenderBounds()
+
+				-- if hovering, block bind
+				if band(inputstate, tdui.FSTATE_HOVERING) ~= 0 then
+					return true
+				end
+			end
+		end
+	end
+end)
+
+-- Inserts current TDUI to list of TDUIs checked when player presses +use
+-- If the +use happened while hovering tdui, the bind is blocked
+-- This is useful to prevent eg. exiting from a car if trying to interact with TDUI inside a car
+function tdui_meta:BlockUseBind()
+	useBindChecks[self] = true
 end
 
 -- Create singleton instance of TDUI
@@ -864,3 +943,5 @@ tdui.RegisterSkin("default", {
 		pressColor = tdui.COLOR_ORANGE
 	}
 })
+
+return tdui

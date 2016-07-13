@@ -1,4 +1,5 @@
 include("shared.lua")
+local tdui = include("autorun/client/3d2dimgui.lua")
 
 --local trackdata = {}
 local signdata = {}
@@ -15,6 +16,7 @@ function ENT:SetupDataTables()
 end
 
 function ENT:Initialize()
+	self.Panel = nil
 	timer.Simple(30,function()
 		if (self:IsValid()) then
 			self:SetRenderBounds( self:OBBMins(), self:OBBMaxs(), (MiniMap.RenderBoundsAdd or Vector( 150, 150, 100 )) )

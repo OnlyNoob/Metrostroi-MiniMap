@@ -5,21 +5,24 @@ include("shared.lua")
 function ENT:Initialize() self.Models = {} end
 function ENT:OnRemove() self:RemoveModels() end
 function ENT:RemoveModels()
+	if self.Models ~= nil then
 	for k,v in pairs(self.Models) do v:Remove() end
 	self.Models = {}
+	end
 end
 
 function ENT:Think()
 	self.LightType = self:GetNWInt("LightType") - 2
 	self.Lenses = self:GetNWString("Lenses")
 	self.Left = self:GetNWBool("Left")
+	self.Double = self:GetNWBool("Double")
 
 	local models = self.TrafficLightModels[self.LightType] or {}
 	local ID = 0
 
 	if (GetConVarNumber("metrostroi_minimap_displaysignalmodels") == 1) then
 		-- Create new clientside models
-		if not self.OnlyARS then
+		if self.Lenses ~= "ARSOnly" then
 			if self.Lenses ~= self.OldLenses then
 				for k,v in pairs(self.Models) do
 					if IsValid(v) then
@@ -35,10 +38,17 @@ function ENT:Think()
 				if type(v) == "string" then
 					if not self.Models[k] then
 						self.Models[k] = ClientsideModel(v,RENDERGROUP_OPAQUE)
-						self.Models[k]:SetPos(self:LocalToWorld(self.BasePosition))
+						self.Models[k]:SetPos(self:LocalToWorld(self.Left and self.BasePosition * Vector(-1,1,1) or self.BasePosition))
 						self.Models[k]:SetAngles(self:GetAngles())
 						self.Models[k]:SetModelScale(0.02, 0)
 						self.Models[k]:SetParent(self)
+						if self.Double then
+							self.Models[k] = ClientsideModel(v,RENDERGROUP_OPAQUE)
+							self.Models[k]:SetPos(self:LocalToWorld(self.Left and self.BasePosition or self.BasePosition * Vector(-1,1,1)))
+							self.Models[k]:SetAngles(self:GetAngles())
+							self.Models[k]:SetModelScale(0.02, 0)
+							self.Models[k]:SetParent(self)
+						end
 					end
 				end
 			end
@@ -59,24 +69,31 @@ function ENT:Think()
 					offset = offset - Vector(0,0,data[1])
 
 					self.Models[ID] = ClientsideModel(self.Left and data[2]:Replace(".mdl","_mirror.mdl") or data[2],RENDERGROUP_OPAQUE)
-					self.Models[ID]:SetPos(self:LocalToWorld(self.BasePosition + offset))
-					self.Models[ID]:SetAngles(self.Left and self:GetAngles() + Angle(0,180,0) or self:GetAngles())
+					self.Models[ID]:SetPos(self:LocalToWorld(self.Left and (self.BasePosition + offset) * Vector(-1,1,1) or self.BasePosition + offset))
+					self.Models[ID]:SetAngles(self.Left and self:GetAngles() + Angle(0,0,0) or self:GetAngles())
 					self.Models[ID]:SetModelScale(0.02, 0)
 					self.Models[ID]:SetParent(self)
+					if self.Double then
+						self.Models[ID] = ClientsideModel(self.Left and data[2]:Replace(".mdl","_mirror.mdl") or data[2],RENDERGROUP_OPAQUE)
+						self.Models[ID]:SetPos(self:LocalToWorld(not self.Left and (self.BasePosition + offset) * Vector(-1,1,1) or self.BasePosition + offset))
+						self.Models[ID]:SetAngles(self.Left and self:GetAngles() + Angle(0,0,0) or self:GetAngles())
+						self.Models[ID]:SetModelScale(0.02, 0)
+						self.Models[ID]:SetParent(self)
+					end
 				end
 				ID = ID + 1
 			end
-		--else
-			--local k = "m1"
-			--local v = self.TrafficLightModels[0]["m1"]
+		else
+			local k = "m1"
+			local v = self.TrafficLightModels[0]["m1"]
 
-			--if not self.Models[k] then
-			--	self.Models[k] = ClientsideModel(v,RENDERGROUP_OPAQUE)
-			--	self.Models[k]:SetPos(self:LocalToWorld(self.BasePosition))
-			--	self.Models[k]:SetAngles(self:GetAngles())
-			--	self.Models[k]:SetModelScale(0.01, 0)
-			--	self.Models[k]:SetParent(self)
-			--end
+			if not self.Models[k] then
+				self.Models[k] = ClientsideModel(v,RENDERGROUP_OPAQUE)
+				self.Models[k]:SetPos(self:LocalToWorld(self.Left and self.BasePosition * Vector(-1,1,1) or self.BasePosition))
+				self.Models[k]:SetAngles(self:GetAngles())
+				self.Models[k]:SetModelScale(0.02, 0)
+				self.Models[k]:SetParent(self)
+			end
 		end
 	else
 		self:RemoveModels()

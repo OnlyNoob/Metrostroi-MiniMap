@@ -160,7 +160,7 @@ function MiniMap.ResetSignalsOverride()
 	for k,v in pairs(ents.FindByClass("gmod_track_signal")) do
 		if (MiniMap.Updated) then
 			v.Close = false
-			v.InvasionSignal = false
+			v.InvationSignal = false
 		else
 			v.OverrideTrackOccupied = false
 		end
@@ -211,19 +211,33 @@ function MiniMap.SendSignData(ply)
 	else
 		local signents = ents.FindByClass("gmod_track_sign")
 		local tbl = {}
-		for k, v in pairs(signents) do
-			local stname = ""
-			if (MiniMap.Updated) then
-				stname = v:GetNW2String("Name","Error")
-			else
-				stname = v:GetNWString("Name","Error")
+		
+		if #signents > 0 then
+			for k, v in pairs(signents) do
+				local stname = ""
+				if (MiniMap.Updated) then
+					stname = v:GetNW2String("Name","Error")
+				else
+					stname = v:GetNWString("Name","Error")
+				end
+				if (stname == "Error" or stname == "") and MiniMap.StationNames then
+					if MiniMap.StationNames[v:GetNWInt("ID")] then
+						stname = MiniMap.StationNames[v:GetNWInt("ID")]
+					end
+				end
+				table.Add(tbl, {{v:GetPos(),v:GetAngles(),stname}})
 			end
-			if (stname == "Error" or stname == "") and MiniMap.StationNames then
-				if MiniMap.StationNames[v:GetNWInt("ID")] then
-					stname = MiniMap.StationNames[v:GetNWInt("ID")]
+		else
+			local platforments = ents.FindByClass("gmod_track_platform")
+			local stname = ""
+			for k, v in pairs(platforments) do
+			if v.StationIndex and MiniMap.StationNames then
+				if MiniMap.StationNames[v.StationIndex] then
+					stname = MiniMap.StationNames[v.StationIndex]
 				end
 			end
-			table.Add(tbl, {{v:GetPos(),v:GetAngles(),stname}})
+				table.Add(tbl, {{v:GetPos(),v:GetAngles(),stname}})
+			end
 		end
 		MiniMap.Cache.SignData = tbl
 		net.Start("gmod_minimap_sign_data")

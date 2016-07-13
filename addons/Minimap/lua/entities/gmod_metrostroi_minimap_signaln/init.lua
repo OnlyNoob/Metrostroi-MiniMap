@@ -46,9 +46,9 @@ function ENT:Use( activator, caller, useType, value )
 						Entity(self.OrigSignal):OpenRoute(1)
 						caller:PrintMessage( HUD_PRINTCENTER, "Open" )
 					end
-				elseif Entity(self.OrigSignal).Red and string.match( Entity(self.OrigSignal).LensesStr, "W", 0 ) and !Entity(self.OrigSignal).Close then
-					Entity(self.OrigSignal).InvasionSignal = !Entity(self.OrigSignal).InvasionSignal
-					caller:PrintMessage( HUD_PRINTCENTER, "Invasion: "..tostring(Entity(self.OrigSignal).InvasionSignal))
+				elseif Entity(self.OrigSignal).AutoEnabled and string.match( Entity(self.OrigSignal).LensesStr, "W", 0 ) and !Entity(self.OrigSignal).Close then
+					Entity(self.OrigSignal).InvationSignal = !Entity(self.OrigSignal).InvationSignal
+					caller:PrintMessage( HUD_PRINTCENTER, "Invasion: "..tostring(Entity(self.OrigSignal).InvationSignal))
 				elseif !Entity(self.OrigSignal).Routes[1].Manual then
 					Entity(self.OrigSignal).Close = !Entity(self.OrigSignal).Close
 					caller:PrintMessage( HUD_PRINTCENTER, "Close: "..tostring(Entity(self.OrigSignal).Close))
@@ -60,11 +60,11 @@ function ENT:Use( activator, caller, useType, value )
 end
 
 function ENT:SetSprite(index,active,model,scale,brightness,pos,color)
-	if active and self.Sprites[index] then return end
+	if active == 1 and self.Sprites[index] then return end
 	SafeRemoveEntity(self.Sprites[index])
 	self.Sprites[index] = nil
 	
-	if active then
+	if active == 1 then
 		local sprite = ents.Create("env_sprite")
 		sprite:SetParent(self)
 		sprite:SetLocalPos(pos)
@@ -96,13 +96,17 @@ function ENT:Think()
 		return
 	end
 	self:SetNWInt("LightType", (Entity(self.OrigSignal).SignalType or 0) + 2)
-	self:SetNWString("Lenses", Entity(self.OrigSignal).LensesStr or "RRR-RRR")
+	self:SetNWString("Lenses", Entity(self.OrigSignal).ARSOnly and "ARSOnly" or Entity(self.OrigSignal).LensesStr)
 	self:SetNWBool("Left", Entity(self.OrigSignal).Left or false)
+	self:SetNWBool("Double", Entity(self.OrigSignal).Double or false)
 	
 	-- Create sprites and manage lamps
 	local index = 1
 	local offset = self.RenderOffset[Entity(self.OrigSignal).SignalType] or Vector(0,0,0)
 	for k,v in ipairs(Entity(self.OrigSignal).Lenses) do
+		if Entity(self.OrigSignal).ARSOnly then
+			break
+		end
 		if not Entity(self.OrigSignal).Routes[Entity(self.OrigSignal).Route or 1].Lights then continue end
 		local Lights = string.Explode("-",Entity(self.OrigSignal).Routes[Entity(self.OrigSignal).Route or 1].Lights)
 
@@ -114,8 +118,8 @@ function ENT:Think()
 			for i = 1,#v do
 				--Get the LightID and check, is this light must light up
 				local LightID = IsValid(Entity(self.OrigSignal).NextSignalLink) and math.min(#Lights,Entity(self.OrigSignal).FreeBS+1) or 1
-				local AverageState = Lights[LightID]:find(tostring(index)) or (v[i] == "W" and Entity(self.OrigSignal).InvasionSignal)
-				local MustBlink = (v[i] == "W" and Entity(self.OrigSignal).InvasionSignal) or (AverageState and Lights[LightID][AverageState+1] == "b") --Blinking, when next is "b" (or it's invasion signal')
+				local AverageState = Lights[LightID]:find(tostring(index)) or ((v[i] == "W" and Entity(self.OrigSignal).InvationSignal and Entity(self.OrigSignal).GoodInvationSignal == index) and 1 or 0)
+				local MustBlink = (v[i] == "W" and Entity(self.OrigSignal).InvationSignal and Entity(self.OrigSignal).GoodInvationSignal == index) or (AverageState > 0 and Lights[LightID][AverageState+1] == "b") --Blinking, when next is "b" (or it's invasion signal')
 				local TimeToOff = not (RealTime() % 0.8 > 0.25)
 				--if v[i] == "R" and #Lights[LightID] == 1 and AverageState then self.RedSignal = true end
 				--if v[i] == "R" and #Lights[LightID] <= 2 and AverageState then self.AutoEnabled = true end
@@ -128,12 +132,12 @@ function ENT:Think()
 					-- The LED glow
 					self:SetSprite(index.."a",AverageState,
 						"models/metrostroi_signals/signal_sprite_001.vmt",0.008,1.0,
-						Entity(self.OrigSignal).Left and self.BasePosition + offset + data[3][i-1] + Vector(0,-0.20,0) or self.BasePosition + offset + data[3][i-1], Metrostroi.Lenses[v[i]])
+						Entity(self.OrigSignal).Left and (self.BasePosition + offset + data[3][i-1]) * Vector(-1,1,1) or self.BasePosition + offset + data[3][i-1], Metrostroi.Lenses[v[i]])
 
 					-- Overall glow
 					self:SetSprite(index.."b",AverageState,
 						"models/metrostroi_signals/signal_sprite_002.vmt",0.0050,0.6,
-						Entity(self.OrigSignal).Left and self.BasePosition + offset + data[3][i-1] + Vector(0,-0.20,0) or self.BasePosition + offset + data[3][i-1], Metrostroi.Lenses[v[i]])
+						Entity(self.OrigSignal).Left and (self.BasePosition + offset + data[3][i-1]) * Vector(-1,1,1) or self.BasePosition + offset + data[3][i-1], Metrostroi.Lenses[v[i]])
 					self.EnableDelay[index] = nil
 				end
 				index = index + 1
