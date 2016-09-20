@@ -9,3 +9,12 @@ Metrostroi-MiniMap / addons / Minimap / lua / minimap / configs / maps /
 
 Config files:
 Metrostroi-MiniMap / addons / Minimap / lua / minimap / configs / modules /
+
+# Licensing
+
+### Models and materials:
+
+All models and materials belong to their corresponding authors.
+
+MiniMap Models: OnlyNoob
+Old Metrostroi Signals Models: ???
