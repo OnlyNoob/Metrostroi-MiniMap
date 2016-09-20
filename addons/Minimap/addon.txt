@@ -1,9 +1,0 @@
-"AddonInfo"
-{
-	"name"        "MetrostroiMiniMap"
-	"version"     "11"
-	"author_name" "OnlyNoob"
-	"author_url"  ""
-	"info"        "Metrostroi Mini Map and more."
-	"override"    "0"
-}
